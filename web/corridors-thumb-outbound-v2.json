@@ -1,49 +1,49 @@
 {
-  "direction": "return",
-  "updated_at": "2026-09-17T10:54:03+08:00",
+  "direction": "outbound",
+  "updated_at": "2026-09-17T11:13:52+08:00",
   "route_version": 2,
   "size": [
     512,
     1024
   ],
   "bbox": [
-    112.07384,
+    112.0739,
     22.58084,
-    113.95489,
-    26.89741
+    113.95494,
+    26.89435
   ],
   "corridors": [
     {
       "id": "leguang",
-      "short": "许广—广连",
+      "short": "广连—许广",
       "recommended": true,
       "color": "#1F5FA8",
-      "distance_km": 597.8,
-      "points": 48
+      "distance_km": 603.2,
+      "points": 47
     },
     {
       "id": "xuguang",
       "short": "许广 G0421",
       "recommended": false,
       "color": "#D9A036",
-      "distance_km": 647.7,
-      "points": 53
+      "distance_km": 610.7,
+      "points": 51
     },
     {
       "id": "jinggangao",
       "short": "京港澳 G4",
       "recommended": false,
       "color": "#D9604F",
-      "distance_km": 664.3,
-      "points": 56
+      "distance_km": 688.9,
+      "points": 54
     },
     {
       "id": "erguang",
       "short": "二广 G55",
       "recommended": false,
       "color": "#7A6FA8",
-      "distance_km": 727.5,
-      "points": 55
+      "distance_km": 718.2,
+      "points": 51
     }
   ]
 }

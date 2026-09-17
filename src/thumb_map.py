@@ -30,6 +30,7 @@
 import argparse
 import json
 import math
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -156,6 +157,37 @@ def ordered_geometry(geoms: dict, trip: dict) -> list:
     return rows
 
 
+def thumb_paths(out_dir: Path, direction: str, route_version: int) -> tuple:
+    """缩略图文件名里带路线版本号。
+
+    为什么要把版本号写进文件名（而不是只写进 json）：
+        改了途经点之后，旧版本的图还躺在 web/ 里。如果文件名不变，前端拿到的是
+        一张「旧路线」的图配「新路线」的数据 —— 看着对，其实是错的。
+        （浏览器缓存也会让旧图更难清掉。）
+        把版本编进文件名之后：文件名对不上就是 404 → 前端自然走到「还没生成」的提示，
+        不会出现新旧混搭。这也顺便解决了缓存：换版本＝换文件名。
+    """
+    base = "corridors-thumb-%s-v%d" % (direction, route_version)
+    return out_dir / (base + ".png"), out_dir / (base + ".json")
+
+
+def prune_old_thumbs(out_dir: Path, direction: str, keep_version: int, verbose: bool = True) -> list:
+    """删掉同方向其它版本的图（含早期不带版本号的命名）。"""
+    removed = []
+    for p in sorted(out_dir.glob("corridors-thumb-%s*.png" % direction)) + \
+             sorted(out_dir.glob("corridors-thumb-%s*.json" % direction)):
+        m = re.match(r"^corridors-thumb-%s(?:-v(\d+))?\.(png|json)$" % re.escape(direction), p.name)
+        if not m:
+            continue
+        if m.group(1) is not None and int(m.group(1)) == keep_version:
+            continue
+        p.unlink()
+        removed.append(p.name)
+    if removed and verbose:
+        print("   ⌫ 清掉旧版本图：%s" % "、".join(removed))
+    return removed
+
+
 # ---------------- 抽稀与 URL 拼接 ----------------
 
 def decimate(points: list, max_pts: int = MAX_PTS) -> list:
@@ -270,13 +302,15 @@ def render_direction(client, cfg: dict, key: str, direction: str, trip: dict,
     print("[%s] %s → %s"
           % (DIR_LABEL.get(direction, direction), trip["origin_name"], trip["destination_name"]))
     out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / ("corridors-thumb-%s.png" % direction)
+    version = int(trip.get("route_version", 1))
+    out, meta_path = thumb_paths(out_dir, direction, version)
 
     geoms, fetched = ensure_geometry(client, cfg, direction, trip, refresh=refresh)
 
     # 定时任务用 --if-stale：路线没动过、图也已经在，就不用再问高德要一次同样的图。
     if if_stale and not fetched and not refresh and out.exists():
         print("   几何无变化且图已存在，跳过下载（--if-stale）")
+        prune_old_thumbs(out_dir, direction, version)
         return out
 
     rows = ordered_geometry(geoms, trip)
@@ -298,11 +332,9 @@ def render_direction(client, cfg: dict, key: str, direction: str, trip: dict,
 
     if url_only:
         print("   " + url)
-        return out_dir / ("corridors-thumb-%s.png" % direction)
+        return out
 
     import requests
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out = out_dir / ("corridors-thumb-%s.png" % direction)
     resp = requests.get(url, timeout=30)
     if resp.status_code != 200:
         raise AmapError("静态图下载失败 HTTP %d" % resp.status_code)
@@ -314,16 +346,17 @@ def render_direction(client, cfg: dict, key: str, direction: str, trip: dict,
     print("   ✓ 已保存 %s（%.0f KB）" % (out.relative_to(ROOT), len(resp.content) / 1024))
 
     # 顺手把走廊元信息落一份，方便以后接交互式地图时不用再解析 config
-    meta = out_dir / ("corridors-thumb-%s.json" % direction)
-    meta.write_text(json.dumps({
+    meta_path.write_text(json.dumps({
         "direction": direction, "updated_at": datetime.now(TZ).isoformat(timespec="seconds"),
-        "route_version": int(trip.get("route_version", 1)),
+        "route_version": version,
         "size": list(size), "bbox": [round(v, 5) for v in bbox],
         "corridors": [{"id": r["id"], "short": r["short"], "recommended": r["recommended"],
                        "color": PALETTE[r["idx"] % len(PALETTE)],
                        "distance_km": r["distance_km"], "points": counts[r["id"]]}
                       for r in rows],
     }, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    prune_old_thumbs(out_dir, direction, version)
     return out
 
 

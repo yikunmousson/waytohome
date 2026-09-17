@@ -409,6 +409,9 @@ function renderCorridorTable(x){
 // 图是 src/thumb_map.py 用高德静态图 API 出好的静态 PNG，前端只负责挂上去。
 // 这样做的好处是前端不带任何 Key；坏处是图和数据不是一次生成的，所以下面做了
 // 「图还没生成」的降级提示，而不是让页面挂个碎图图标。
+//
+// 文件名里带 route_version：改了途经点之后，旧版本的图还在，但文件名对不上 →
+// 直接 404 → 走到下面的降级提示。这样不会出现「旧路线的图配新路线的数据」。
 function renderMap(x){
   let img = document.getElementById('mapImg');
   const wrap = document.getElementById('mapwrap');
@@ -417,23 +420,18 @@ function renderMap(x){
     img = document.getElementById('mapImg');
   }
   if (!img) return;
-  if ((x.coverage||{}).records === 0 && (x.coverage||{}).excluded_old_route){
-    wrap.innerHTML = '<p class="note" style="padding:6px 4px">路线途经点刚刚升级，旧路线图已停止展示。'
-      + '<br>第一次成功采集后，自动部署会生成新版路线图。</p>';
-    document.getElementById('mapSide').innerHTML = '<p class="note">等待新版路线首次采集。</p>';
-    document.getElementById('mapNote').textContent = '旧版本路线图不会用于新版判断。';
-    return;
-  }
+  const ver = (x.trip && x.trip.route_version) || 1;
+  const file = `corridors-thumb-${DIR}-v${ver}.png`;
   // 用 generated_at 做缓存戳：data.json 一更新，图也跟着重新拉
   const token = String(DATA.generated_at || '').replace(/\D/g, '') || Date.now();
   img.onerror = () => {
     img.onerror = null;
-    wrap.innerHTML = '<p class="note" style="padding:6px 4px">这条方向的缩略图还没生成。<br>'
+    wrap.innerHTML = `<p class="note" style="padding:6px 4px">当前路线（<b>v${ver}</b>）的缩略图还没生成。<br>`
       + '在本机跑一次：<br><code>python3 src/thumb_map.py</code><br>'
       + '它会按需抓一次四条走廊的几何（缓存进 <code>data/geometry/</code>），再用高德静态图出图。</p>';
   };
   img.alt = `${x.trip.origin_name} → ${x.trip.destination_name} 四条候选走廊路线图`;
-  img.src = `corridors-thumb-${DIR}.png?t=${token}`;
+  img.src = `${file}?t=${token}`;
 
   const rows = (x.corridors || []).slice()
     .sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0) || (a.idx - b.idx));

@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="data:," />
+<title>国庆长途路况监测 · 深圳西丽 ↔ 衡阳</title>
+<style>
+:root{
+  --bg:#F6F6F4; --card:#FFFFFF; --line:#E7E5E0; --line2:#D8D5CE;
+  --ink:#1D1D1F; --ink2:#6B6B70; --ink3:#9C9C9F;
+  --accent:#1F5FA8; --accent-bg:#EAF1FA;
+  --free:#4E9E5B; --slow:#D9A036; --jam:#D9604F; --heavy:#A22C2C;
+  --r:14px;
+  --c0:#1F5FA8; --c1:#D9A036; --c2:#D9604F; --c3:#7A6FA8;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:30px 22px 90px}
+h1{font-size:24px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
+h2{font-size:16px;font-weight:600;margin:0 0 4px}
+h3{font-size:14px;font-weight:600;margin:18px 0 6px;color:var(--ink2)}
+.sub{color:var(--ink2);font-size:13px;margin:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin-top:16px}
+.head{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;justify-content:space-between}
+.tabs{display:inline-flex;background:#EFEEEB;border-radius:10px;padding:3px;gap:2px}
+.tabs button{border:0;background:transparent;font:inherit;font-size:13px;color:var(--ink2);
+  padding:6px 16px;border-radius:8px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:#fff;color:var(--ink);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.tabs.sm button{padding:5px 12px;font-size:12px}
+.tabs.sel{margin-left:auto}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0 2px}
+.banner{margin-top:14px;background:#FDF6E3;border:1px solid #F0DFB0;color:#7A5B12;
+  border-radius:10px;padding:10px 14px;font-size:13px;display:none}
+.banner.on{display:block}
+.verdict{margin-top:16px;background:linear-gradient(180deg,#F2F7FD,#FAFCFF);
+  border:1px solid #D6E4F5;border-radius:12px;padding:16px 18px}
+.verdict .big{font-size:15px;line-height:1.9}
+.verdict .big b{font-size:19px;letter-spacing:-.3px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-top:16px}
+.m{background:#FAFAF8;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.m .lab{font-size:12px;color:var(--ink2);margin-bottom:4px}
+.m .val{font-size:26px;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.m .val small{font-size:14px;font-weight:400;color:var(--ink2);margin-left:3px}
+.m .note{font-size:12px;color:var(--ink3);margin-top:2px}
+table.data{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+table.data th{text-align:left;font-weight:400;color:var(--ink3);font-size:12px;padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.data td{padding:9px 10px;border-bottom:1px solid #F2F0EC;font-variant-numeric:tabular-nums;vertical-align:top}
+table.data tr:last-child td{border-bottom:0}
+table.data tr.hi td{background:#F7FAFE}
+table.data tr.rec td:first-child{box-shadow:inset 3px 0 0 var(--c0)}
+.co{display:flex;align-items:center;gap:7px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.coname{font-weight:500}
+.conote{font-size:11.5px;color:var(--ink3);line-height:1.5;margin-top:2px;max-width:280px}
+.pill{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:#EFEEEB;color:var(--ink2);white-space:nowrap}
+.pill.rec{background:#EAF1FA;color:#1F5FA8;font-weight:500}
+.pill.free{background:#E4F3EA;color:#0F6E56}
+.pill.est{background:#FDF1DC;color:#8A5C0E}
+.pill.win{background:#1D1D1F;color:#fff}
+.bar{height:6px;border-radius:3px;background:#EFEEEB;margin-top:6px;overflow:hidden;min-width:70px}
+.bar i{display:block;height:100%;border-radius:3px}
+.hm{margin-top:14px;overflow-x:auto}
+.hm table{border-collapse:separate;border-spacing:3px;font-size:12px}
+.hm th{font-weight:400;color:var(--ink3);font-size:11px;text-align:center;padding:0}
+.hm td.rowlab{text-align:right;white-space:nowrap;color:var(--ink2);padding-right:8px;font-size:12px}
+.hm td.rowlab b{color:var(--ink);font-weight:500}
+.cell{width:30px;height:26px;border-radius:5px;display:block}
+.cell.best{outline:2px solid #1D1D1F;outline-offset:-2px}
+.cell.free::after{content:"";display:block;width:5px;height:5px;border-radius:50%;background:#1D9E75;margin:1px auto 0}
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--ink2);margin-top:14px;align-items:center}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:5px;vertical-align:-2px}
+.band{margin-top:16px}
+.strip{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line2)}
+.strip div{height:100%}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:6px}
+.roadlist{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink2)}
+.roadlist span b{color:var(--ink);font-weight:500}
+.maprow{display:grid;grid-template-columns:330px minmax(0,1fr);gap:24px;margin-top:14px;align-items:start}
+.mapwrap{background:#FAFAF8;border:1px solid var(--line);border-radius:12px;padding:8px}
+.mapwrap img{width:100%;height:auto;display:block;border-radius:8px}
+.mapside{display:flex;flex-direction:column;gap:11px}
+.mlg{display:flex;gap:9px;align-items:flex-start;font-size:13px}
+.mlg i{flex:none;width:22px;height:5px;border-radius:3px;margin-top:8px}
+.mlg i.dot{width:9px;height:9px;border-radius:50%;margin-top:6px}
+.mlg .mhd{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
+.mlg .mhd em{font-style:normal;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.mlg span{display:block;font-size:11.5px;color:var(--ink3);line-height:1.5;margin-top:2px}
+.chart{position:relative;height:290px;margin-top:14px}
+.chart.tall{height:330px}
+.matrix{margin-top:12px;overflow-x:auto}
+.matrix table{border-collapse:separate;border-spacing:2px;font-size:11px}
+.matrix th{font-weight:400;color:var(--ink3);font-size:10.5px;text-align:center;padding:0 0 3px;white-space:nowrap}
+.matrix td.lab{text-align:right;white-space:nowrap;color:var(--ink2);padding-right:8px;font-size:12px}
+.matrix .mc{width:100%;min-width:22px;height:24px;border-radius:4px;display:block}
+.note{font-size:13px;color:var(--ink2)}
+.note ul{margin:8px 0 0;padding-left:20px}
+.note li{margin-bottom:5px}
+.warn{background:#FDF2F0;border-color:#F2D6D1;color:#8C3A2E}
+.foot{font-size:12px;color:var(--ink3);margin-top:26px;text-align:center;line-height:1.9}
+a{color:var(--accent)}
+@media (max-width:720px){
+  .wrap{padding:20px 14px 70px}
+  h1{font-size:20px}
+  .m .val{font-size:22px}
+  .cell{width:24px;height:22px}
+    .conote{display:none}
+    .maprow{grid-template-columns:1fr}
+    .mapwrap{max-width:340px;margin:0 auto}
+    .tabs.sel{margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1 id="title">国庆长途路况监测</h1>
+      <p class="sub" id="subtitle">加载中…</p>
+    </div>
+    <div class="tabs" role="group" aria-label="方向切换">
+      <button id="tab-outbound" aria-pressed="true" onclick="setDir('outbound')">去程</button>
+      <button id="tab-return" aria-pressed="false" onclick="setDir('return')">返程</button>
+    </div>
+  </div>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="card" id="card-corridor">
+    <h2>四条走廊，此刻谁最快</h2>
+    <p class="sub">同一时刻、同一策略下，高德对 4 条候选走廊给出的当前预计耗时。仅使用 45 分钟内的成功采样。</p>
+    <div id="verdict"></div>
+    <div id="cotable"></div>
+  </div>
+
+  <div class="card" id="card-map">
+    <h2>四条走廊 · 空间走向</h2>
+    <p class="sub">把 4 条候选走廊叠在同一张底图上（高德静态图）。越往西＝绕得越远，但节假日可能反而更顺；一眼能看出哪几条在粤北分叉。</p>
+    <div class="maprow">
+      <div class="mapwrap" id="mapwrap"><img id="mapImg" alt="四条候选走廊路线缩略图" /></div>
+      <div class="mapside" id="mapSide"></div>
+    </div>
+    <p class="note" id="mapNote" style="margin-top:14px"></p>
+  </div>
+
+  <div class="card" id="card-hour">
+    <h2>走廊 × 出发时刻</h2>
+    <p class="sub">横轴是出发小时，纵轴是这条走廊预计要跑多久。可以切换候选日期，看出「哪天走哪条最快」。</p>
+    <div class="toolbar">
+      <div class="tabs sm" id="dateTabs" role="group" aria-label="日期切换"></div>
+      <div class="tabs sm sel" id="yTabs" role="group" aria-label="纵轴切换">
+        <button id="ym-h" aria-pressed="true" onclick="setYMode('h')">绝对耗时</button>
+        <button id="ym-x" aria-pressed="false" onclick="setYMode('x')">相对畅通倍数</button>
+      </div>
+    </div>
+    <div class="chart"><canvas id="corrChart" role="img" aria-label="各走廊在不同出发时刻的预计耗时对比折线图"></canvas></div>
+    <div class="legend" id="corrLegend"></div>
+  </div>
+
+  <div class="card" id="card-heat">
+    <h2>出发窗口地图</h2>
+    <p class="sub">横轴是出发时刻，纵轴是候选日期。颜色越红＝全程耗时越长。实线框是当天最优，绿点是到达时正好在免费时段内。</p>
+    <div class="toolbar">
+      <div class="tabs sm" id="hmTabs" role="group" aria-label="走廊切换"></div>
+    </div>
+    <div class="hm" id="heatmap"></div>
+    <div class="legend">
+      <span><i style="background:#CFE8C2"></i>最快</span>
+      <span><i style="background:#F5D48A"></i>偏慢</span>
+      <span><i style="background:#E88A80"></i>最慢</span>
+      <span><i style="background:#1D9E75;border-radius:50%"></i>到达落在免费时段</span>
+    </div>
+  </div>
+
+  <div class="card" id="card-best">
+    <h2>最佳出发窗口</h2>
+    <p class="sub" id="bestsub">跨 4 条走廊比较候选窗口。经验样本不足时只作为参考，不会标成实测结论。</p>
+    <div id="besttable"></div>
+    <h3>每条走廊自己的最优窗口</h3>
+    <p class="sub">如果想要走某条备选走廊，那条走廊上什么时间出发最划算 —— 用来判断「为了避开主通道要付出多少代价」。</p>
+    <div id="bestPerCo"></div>
+  </div>
+
+  <div class="card" id="card-seg">
+    <h2>沿线分段</h2>
+    <p class="sub">同一条路线版本内按里程等分成 20 段。上半部分是各走廊相对位置的均速对照，下半部分是选中走廊的当前路况色带。</p>
+    <div class="toolbar">
+      <div class="tabs sm" id="segTabs" role="group" aria-label="色带走廊切换"></div>
+    </div>
+    <div class="matrix" id="segMatrix"></div>
+    <div class="band" id="bandWrap">
+      <h3 id="bandTitle">实时路况色带</h3>
+      <div class="strip" id="strip"></div>
+      <div class="axis"><span id="axis0">起点</span><span id="axis1">终点</span></div>
+      <div class="legend" id="stripLegend"></div>
+      <div class="roadlist" id="roadlist"></div>
+    </div>
+    <div id="segtable"></div>
+  </div>
+
+  <div class="card" id="card-trend">
+    <h2>全程耗时趋势</h2>
+    <p class="sub">每一条采样都是这个时刻「立刻出发」的预计耗时。虚线是推荐走廊的畅通基准。</p>
+    <div class="chart tall"><canvas id="trendChart" role="img" aria-label="各走廊全程预计耗时随时间的折线图"></canvas></div>
+    <div class="legend" id="trendLegend"></div>
+  </div>
+
+  <div class="card note" id="notes"></div>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+let DATA = null, DIR = 'outbound', charts = {};
+let SEL_DATE = 0, SEL_CO = null, HM_CO = '__best__', SEG_CO = null, YMODE = 'h';
+
+const PALETTE = ['#1F5FA8', '#D9A036', '#D9604F', '#7A6FA8'];
+const BASIS_NAME = {0:'经验推算', 1:'实测+经验', 2:'实测为主'};
+const STATUS_COLOR = { '畅通':'#4E9E5B', '缓行':'#D9A036', '拥堵':'#D9604F', '严重拥堵':'#A22C2C', '未知':'#C9C7C1' };
+const STATUS_ORDER = ['畅通','缓行','拥堵','严重拥堵','未知'];
+const DAY_CN = { workday:'工作日', weekend:'周末', holiday:'假期', makeup:'补班' };
+
+const fmtH = m => (m/60).toFixed(1);
+const fmtHM = m => { const h=Math.floor(m/60), mm=Math.round(m%60); return h+" 小时 "+mm+" 分"; };
+const hm = s => s ? s.slice(5,16).replace('T',' ') : '—';
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const coColor = c => PALETTE[(c && c.idx != null ? c.idx : 0) % PALETTE.length];
+
+function d(){ return DATA && DATA[DIR]; }
+function corridors(){ return (d() && d().corridors) || []; }
+function coById(id){ return corridors().find(c=>c.id===id) || null; }
+function fmtHMshort(m){ const h=Math.floor(m/60), mm=Math.round(m%60); return h+"h"+String(mm).padStart(2,'0'); }
+
+// 绿 -> 琥珀 -> 红
+function scaleColor(t){
+  t = Math.max(0, Math.min(1, t));
+  const stops = [[0,[207,232,194]],[0.5,[245,212,138]],[1,[232,138,128]]];
+  for (let i=0;i<stops.length-1;i++){
+    const a=stops[i][0], ca=stops[i][1], b=stops[i+1][0], cb=stops[i+1][1];
+    if (t>=a && t<=b){
+      const k=(t-a)/(b-a);
+      return `rgb(${Math.round(ca[0]+(cb[0]-ca[0])*k)},${Math.round(ca[1]+(cb[1]-ca[1])*k)},${Math.round(ca[2]+(cb[2]-ca[2])*k)})`;
+    }
+  }
+  return 'rgb(232,138,128)';
+}
+// 车速 -> 颜色（红慢绿快）
+function speedColor(spd){
+  if (spd == null) return '#E4E2DD';
+  if (spd >= 90) return '#4E9E5B';
+  if (spd >= 75) return '#8CBF6A';
+  if (spd >= 60) return '#D9C256';
+  if (spd >= 40) return '#D9A036';
+  if (spd >= 25) return '#D9604F';
+  return '#A22C2C';
+}
+function domStatus(mix){
+  let best=null, bv=-1;
+  for (const k in (mix||{})) if (mix[k]>bv){ bv=mix[k]; best=k; }
+  return best || '未知';
+}
+
+function setDir(dir){
+  DIR = dir;
+  SEL_DATE = 0; SEL_CO = null; HM_CO = '__best__'; SEG_CO = null;
+  document.getElementById('tab-outbound').setAttribute('aria-pressed', dir==='outbound');
+  document.getElementById('tab-return').setAttribute('aria-pressed', dir==='return');
+  render();
+}
+function setYMode(m){
+  YMODE = m;
+  document.getElementById('ym-h').setAttribute('aria-pressed', m==='h');
+  document.getElementById('ym-x').setAttribute('aria-pressed', m==='x');
+  if (DATA) renderCorrChart();
+}
+function pickCorridor(id, kind){
+  if (kind === 'heat') HM_CO = id;
+  else if (kind === 'seg') SEG_CO = id;
+  else SEL_CO = id;
+  render();
+}
+
+// ---- 主渲染 ----
+function render(){
+  const x = d();
+  if (!x || !x.corridors || !x.corridors.length){
+    document.getElementById('subtitle').textContent = '暂无该方向数据';
+    return;
+  }
+  const cov = x.coverage || {};
+  const rec = x.corridors.find(c=>c.recommended) || x.corridors[0];
+  if (!SEL_CO) SEL_CO = rec.id;
+  if (!SEG_CO) SEG_CO = rec.id;
+  const recNow = rec.now || {};
+
+  document.getElementById('title').textContent = (x.trip && x.trip.name) ? x.trip.name : '国庆长途路况监测';
+  document.getElementById('subtitle').textContent =
+    `${x.trip.origin_name} → ${x.trip.destination_name} · 4 条候选走廊 · 数据更新于 ${hm(x.updated_at)}`;
+
+  const b = document.getElementById('banner');
+  const mat = cov.maturity == null ? 0 : cov.maturity;
+  let banner = '';
+  if (mat < 0.6){
+    banner += `基线正在积累中：已覆盖 <b>${cov.hours_covered||0}/24</b> 个小时（成熟度 <b>${Math.round(mat*100)}%</b>）。
+      当前出发窗口主要是经验模型与少量高德估时的组合，只适合观察大致时段。
+      等覆盖更多日期和小时后，才适合用来比较细小差异。`;
+  }
+  const currentIssues = (x.corridors||[]).filter(c=>!(c.now||{}).ok);
+  if (currentIssues.length){
+    banner += (banner ? '<br>' : '') + `有 <b>${currentIssues.length}</b> 条走廊没有 45 分钟内的成功采样，
+      已从“现在最快”排名中排除。请看表格中的失败或过期原因。`;
+  }
+  if (cov.excluded_old_route){
+    banner += (banner ? '<br>' : '') + `路线途经点已更新，<b>${cov.excluded_old_route}</b> 条旧路线记录已隔离，不会混入新基线。`;
+  }
+  if (x.route_warning){
+    banner += (banner ? '<br>' : '') + '高德本轮返回的推荐走廊与上一轮道路序列差异较大。'
+      + '<b>先在高德地图中核对实际走向，再使用路线排名。</b>';
+  }
+  if (DIR==='return' && (x.arrival_constraint||[]).length){
+    banner += (banner ? '<br>' : '') + `返程窗口按<b>抵达深圳日期</b>筛选：${x.arrival_constraint[0].slice(5)} 至 ${x.arrival_constraint.at(-1).slice(5)}。`;
+  }
+  if (cov.simulated){
+    banner += (banner ? '<br>' : '') + `检测到 <b>${cov.simulated}</b> 条非真实记录（仿真/夹具），<b>已被排除在基线之外</b>。
+      要清掉：<code>python3 tests/backfill_demo.py --clean</code>`;
+  }
+  b.className = banner ? 'banner on' : 'banner';
+  b.innerHTML = banner;
+
+  renderVerdict(x);
+  renderCorridorTable(x);
+  renderMap(x);
+  renderDateTabs(x);
+  renderCorrChart();
+  renderHmTabs(x);
+  renderHeatmap(x);
+  renderBest(x);
+  renderSegTabs(x);
+  renderSegMatrix(x);
+  renderStrip(x);
+  renderSegTable(x);
+  renderTrend(x);
+  renderNotes(x, cov);
+}
+
+// ---- 结论 + 走廊总览 ----
+function renderVerdict(x){
+  const t = x.now_table || [];
+  const best = t[0];
+  const el = document.getElementById('verdict');
+  if (!best){ el.innerHTML = '<p class="note">本轮还没有可比的走廊数据。</p>'; document.getElementById('cotable').innerHTML=''; return; }
+  const second = t[1];
+  const gapTxt = second ? `比第二快的 <b>${esc(second.short)}</b> 快 <b>${Math.round(second.gap_min)} 分钟</b>` : '';
+  const freeNow = '';
+  el.innerHTML = `<div class="big">现在出发，走 <b style="color:${coColor(coById(best.id))}">${esc(best.short)}</b>
+    ：<b>${fmtH(best.duration_min)} 小时</b>，${best.distance_km} 公里，过路费 ¥${Math.round(best.tolls||0)}${gapTxt?'，'+gapTxt:''}。</div>
+    <div class="note" style="margin-top:8px">4 条走廊此刻的差距是 <b>${Math.round(x.now_spread_min||0)} 分钟</b>。
+    节假日差距会被放大 —— 走廊 × 出发时刻那张图就是干这个用的。</div>`;
+}
+
+function renderCorridorTable(x){
+  const t = x.now_table || [];
+  const rec = x.recommended_id;
+  const fastest = x.fastest_now;
+  let html = '<table class="data"><thead><tr><th>走廊</th><th>定位</th><th>里程</th><th>现在耗时</th><th>比最快</th><th>过路费</th><th>畅通基准</th><th>数据依据</th></tr></thead><tbody>';
+  const ordered = (x.corridors||[]).slice();
+  ordered.forEach(c=>{
+    const n = c.now || {};
+    const bl = c.baseline || {};
+    const isHi = c.id === fastest;
+    const isRec = c.id === rec;
+    const basisTxt = n.ok ? ((c.rank===1) ? '<span class="pill win">本轮最快</span>' : '<span class="pill">第 '+c.rank+'</span>')
+      : `<span class="pill">${n.stale?'已过期':'采集失败'}</span><div class="conote">${esc(n.error||'暂无新版路线数据')}${n.sampled_at?'<br>最近尝试 '+hm(n.sampled_at):''}</div>`;
+    const gap = (c.gap_min==null) ? '—' : (c.gap_min<=0 ? '最快' : '+'+Math.round(c.gap_min)+' 分');
+    // 差距条：以最慢为满格
+    const maxGap = Math.max(1, ...ordered.map(o=>o.gap_min||0));
+    const barW = c.gap_min==null ? 0 : Math.max(3, Math.round((c.gap_min/maxGap)*100));
+    const barCol = c.id===fastest ? '#4E9E5B' : scaleColor(0.35 + 0.65*(c.gap_min||0)/maxGap);
+    html += `<tr class="${isHi?'hi':''} ${isRec?'rec':''}">
+      <td>
+        <div class="co"><span class="dot" style="background:${coColor(c)}"></span>
+          <span class="coname">${isRec?'★ ':''}${esc(c.short)}</span></div>
+        <div class="conote">${esc(c.name)}${c.note?'<br>'+esc(c.note):''}</div>
+      </td>
+      <td>${isRec?'<span class="pill rec">推荐</span>':'<span class="pill">备选</span>'}</td>
+      <td>${n.ok? n.distance_km+' km' : '—'}</td>
+      <td>${n.ok? '<b>'+fmtH(n.duration_min)+'</b> 小时' : '—'}</td>
+      <td>${gap}
+        <div class="bar"><i style="width:${barW}%;background:${barCol}"></i></div></td>
+      <td>${n.ok? '¥'+Math.round(n.tolls||0) : '—'}</td>
+      <td>${bl.freeflow_min? fmtH(bl.freeflow_min)+' 小时' : '—'}</td>
+      <td>${basisTxt}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  html += '<p class="note" style="margin-top:10px">“现在耗时”是高德路径规划接口在采样时给出的预计行驶时间，不等同于车辆实际跑出的用时；超过 45 分钟自动失效。“畅通基准”由历史估时与经验模型共同计算。</p>';
+  document.getElementById('cotable').innerHTML = html;
+}
+
+// ---- 空间走向缩略图 ----
+// 图是 src/thumb_map.py 用高德静态图 API 出好的静态 PNG，前端只负责挂上去。
+// 这样做的好处是前端不带任何 Key；坏处是图和数据不是一次生成的，所以下面做了
+// 「图还没生成」的降级提示，而不是让页面挂个碎图图标。
+function renderMap(x){
+  let img = document.getElementById('mapImg');
+  const wrap = document.getElementById('mapwrap');
+  if (!img && wrap){
+    wrap.innerHTML = '<img id="mapImg" alt="四条候选走廊路线缩略图" />';
+    img = document.getElementById('mapImg');
+  }
+  if (!img) return;
+  if ((x.coverage||{}).records === 0 && (x.coverage||{}).excluded_old_route){
+    wrap.innerHTML = '<p class="note" style="padding:6px 4px">路线途经点刚刚升级，旧路线图已停止展示。'
+      + '<br>第一次成功采集后，自动部署会生成新版路线图。</p>';
+    document.getElementById('mapSide').innerHTML = '<p class="note">等待新版路线首次采集。</p>';
+    document.getElementById('mapNote').textContent = '旧版本路线图不会用于新版判断。';
+    return;
+  }
+  // 用 generated_at 做缓存戳：data.json 一更新，图也跟着重新拉
+  const token = String(DATA.generated_at || '').replace(/\D/g, '') || Date.now();
+  img.onerror = () => {
+    img.onerror = null;
+    wrap.innerHTML = '<p class="note" style="padding:6px 4px">这条方向的缩略图还没生成。<br>'
+      + '在本机跑一次：<br><code>python3 src/thumb_map.py</code><br>'
+      + '它会按需抓一次四条走廊的几何（缓存进 <code>data/geometry/</code>），再用高德静态图出图。</p>';
+  };
+  img.alt = `${x.trip.origin_name} → ${x.trip.destination_name} 四条候选走廊路线图`;
+  img.src = `corridors-thumb-${DIR}.png?t=${token}`;
+
+  const rows = (x.corridors || []).slice()
+    .sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0) || (a.idx - b.idx));
+  const coRow = c => {
+    const n = c.now || {};
+    return `<div class="mlg">
+      <i style="background:${coColor(c)};${c.recommended ? 'height:7px;margin-top:7px' : ''}"></i>
+      <div>
+        <div class="mhd"><b>${c.recommended ? '★ ' : ''}${esc(c.short)}</b>
+          ${n.ok ? `<em>${n.distance_km} km · ${fmtH(n.duration_min)} h · ¥${Math.round(n.tolls || 0)}</em>` : ''}</div>
+        <span>${esc(c.note || c.name || '')}</span>
+      </div></div>`;
+  };
+  document.getElementById('mapSide').innerHTML =
+    rows.map(coRow).join('')
+    + `<div class="mlg"><i class="dot" style="background:#1D9E75"></i>
+         <div><div class="mhd"><b>起点</b></div><span>${esc(x.trip.origin_name)}</span></div></div>`
+    + `<div class="mlg"><i class="dot" style="background:#1D1D1F"></i>
+         <div><div class="mhd"><b>终点</b></div><span>${esc(x.trip.destination_name)}</span></div></div>`;
+
+  document.getElementById('mapNote').innerHTML =
+    '底图来自高德静态图 API（<code>v3/staticmap</code>），折线配色与上表、与下面各张图一致（推荐走廊更粗、画在最上层）。'
+    + '高德静态图 <code>paths</code> 上限正好是 4 条线，和候选走廊数量一致，所以四条能画在同一张图上、共用一个缩放级别 —— '
+    + '拆成四张各自动缩放，反而看不出谁比谁更偏西。'
+    + 'Key 只在本机脚本里发出请求，不写进网页（前端放 Key 会被抓走）。'
+    + '几何缓存在 <code>data/geometry/</code>：路不会动，所以只有 <code>--refresh</code> 时才重抓。';
+}
+
+// ---- 日期 tabs ----
+function renderDateTabs(x){
+  const box = document.getElementById('dateTabs');
+  box.innerHTML = (x.dates||[]).map((dt,i)=>
+    `<button aria-pressed="${i===SEL_DATE}" onclick="pickDate(${i})">${dt.date.slice(5)} ${dt.weekday_cn}</button>`
+  ).join('');
+  if (SEL_DATE >= (x.dates||[]).length) SEL_DATE = 0;
+}
+function pickDate(i){ SEL_DATE = i; render(); }
+
+// ---- 走廊 × 出发时刻 ----
+function renderCorrChart(){
+  const x = d(); if (!x) return;
+  const dates = x.dates || [];
+  const dt = dates[SEL_DATE] || dates[0];
+  if (!dt){
+    document.getElementById('corrLegend').innerHTML = '<span>等待新版路线首次采集。</span>';
+    return;
+  }
+  const hours = Array.from({length:24},(_,i)=>i);
+  const series = corridors().map((c,i)=>{
+    const row = (c.cells||[])[SEL_DATE];
+    if (!row) return null;
+    const ff = (c.baseline||{}).freeflow_min || null;
+    const vals = hours.map(h=>{
+      const m = row.m[h];
+      if (m == null) return null;
+      if (YMODE === 'x') return ff ? +(m/ff).toFixed(3) : null;
+      return +(m/60).toFixed(2);
+    });
+    return { label:c.short + (c.recommended?'（推荐）':''), cid:c.id, data:vals,
+             borderColor:coColor(c), backgroundColor:coColor(c),
+             borderWidth:c.recommended?2.6:1.8, pointRadius:0, tension:.3,
+             borderDash:c.recommended?[]:[6,3] };
+  }).filter(Boolean);
+  if (!series.length){
+    document.getElementById('corrLegend').innerHTML = '<span>等待新版路线首次采集。</span>';
+  }
+
+  if (charts.corr) charts.corr.destroy();
+  charts.corr = new Chart(document.getElementById('corrChart'), {
+    type:'line',
+    data:{ labels:hours.map(h=>String(h).padStart(2,'0')), datasets:series },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{
+          title:it=>`${dt.date} ${dt.weekday_cn} ${it[0].label.replace('（推荐）','')}:00 出发`,
+          label:c=>{ if (c.parsed.y==null) return null;
+            return `${c.dataset.label}：${YMODE==='x'? c.parsed.y.toFixed(2)+'×' : c.parsed.y.toFixed(1)+' 小时'}`; } } } },
+      scales:{
+        y:{ ticks:{ callback:v=> YMODE==='x'? v.toFixed(1)+'×' : v+'h' }, grid:{color:'rgba(0,0,0,.06)'} },
+        x:{ ticks:{ autoSkip:false, maxRotation:0, callback:(v,i)=>i%3===0?String(i).padStart(2,'0'):'' }, grid:{display:false} }
+      } }
+  });
+  if (series.length){
+    document.getElementById('corrLegend').innerHTML =
+      series.map(s=>`<span><i style="background:${s.borderColor}"></i>${esc(s.label)}</span>`).join('');
+  }
+}
+
+// ---- 热力图 ----
+function renderHmTabs(x){
+  const box = document.getElementById('hmTabs');
+  const items = [`<button aria-pressed="${HM_CO==='__best__'}" onclick="pickCorridor('__best__','heat')">最快走廊</button>`]
+    .concat(corridors().map(c=>
+      `<button aria-pressed="${HM_CO===c.id}" onclick="pickCorridor('${c.id}','heat')">${esc(c.short)}</button>`));
+  box.innerHTML = items.join('');
+}
+
+function cellOf(co, di, h){
+  const row = (co.cells||[])[di];
+  if (!row || row.m[h]==null) return null;
+  return { m:row.m[h], free:!!row.f[h], basis:BASIS_NAME[row.b[h]] || '经验推算' };
+}
+
+function renderHeatmap(x){
+  const box = document.getElementById('heatmap');
+  const dates = x.dates || [];
+  if (!dates.length){ box.innerHTML = '<p class="note">还没有候选窗口数据。</p>'; return; }
+  const cos = corridors();
+
+  // 收集所有显示的数值用于统一配色
+  const vals = [];
+  dates.forEach((_,di)=>{
+    for (let h=0;h<24;h++){
+      const c = displayCell(cos, di, h);
+      if (c) vals.push(c.m);
+    }
+  });
+  if (!vals.length){ box.innerHTML = '<p class="note">还没有候选窗口数据。</p>'; return; }
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+
+  let html = '<table><thead><tr><th></th>';
+  for (let h=0;h<24;h++) html += `<th>${h%3===0?String(h).padStart(2,'0'):''}</th>`;
+  html += '</tr></thead><tbody>';
+  dates.forEach((dt,di)=>{
+    // 当天最优（按显示口径）
+    let dayBestH = null, dayBestV = Infinity;
+    for (let h=0;h<24;h++){ const c=displayCell(cos,di,h); if (c && c.m<dayBestV){ dayBestV=c.m; dayBestH=h; } }
+    html += `<tr><td class="rowlab"><b>${dt.date.slice(5)}</b> ${dt.weekday_cn}<br><span style="font-size:11px;color:#9C9C9F">${DAY_CN[dt.day_type]||''}</span></td>`;
+    for (let h=0;h<24;h++){
+      const c = displayCell(cos, di, h);
+      if (!c){ html += '<td></td>'; continue; }
+      const t = mx>mn ? (c.m-mn)/(mx-mn) : 0.5;
+      const cls = 'cell' + (h===dayBestH?' best':'') + (c.free?' free':'');
+      const tip = `${dt.date} ${dt.weekday_cn} ${String(h).padStart(2,'0')}:00 出发\n` +
+        c.detail + `\n依据：${c.basis}` + (c.free?'\n到达落在免费时段':'');
+      html += `<td><span class="${cls}" style="background:${scaleColor(t)}" title="${esc(tip)}"></span></td>`;
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  const modeTxt = HM_CO==='__best__'
+    ? '当前显示：<b>每个出发时刻里最快的走廊</b>。鼠标悬停可看到 4 条走廊各自的耗时。'
+    : `当前显示：<b>${esc((coById(HM_CO)||{}).short||'')}</b> 这条走廊。`;
+  html += `<p class="note" style="margin-top:10px">${modeTxt}</p>`;
+  box.innerHTML = html;
+}
+
+// 显示口径：__best__ 取 4 条里最小值；否则取选中走廊
+function displayCell(cos, di, h){
+  if (HM_CO === '__best__'){
+    let best = null;
+    const lines = [];
+    cos.forEach(c=>{
+      const cc = cellOf(c, di, h);
+      if (!cc) return;
+      lines.push(`${c.short}：${fmtH(cc.m)} 小时${cc.free?'（免费）':''}`);
+      if (!best || cc.m < best.m) best = {...cc, id:c.id, short:c.short};
+    });
+    if (!best) return null;
+    return { m:best.m, free:best.free, basis:best.basis,
+             detail:`最快：${best.short} ${fmtH(best.m)} 小时\n` + lines.join('\n') };
+  }
+  const c = coById(HM_CO); if (!c) return null;
+  const cc = cellOf(c, di, h); if (!cc) return null;
+  return { m:cc.m, free:cc.free, basis:cc.basis,
+           detail:`${c.short}：${fmtH(cc.m)} 小时` };
+}
+
+// ---- 最佳窗口榜 ----
+function renderBest(x){
+  const list = x.best_overall || [];
+  const box = document.getElementById('besttable');
+  if (!list.length){
+    box.innerHTML = '<p class="note">等待新版路线首次采集后生成参考窗口。</p>';
+    document.getElementById('bestPerCo').innerHTML = '<p class="note">暂无可比较数据。</p>';
+    return;
+  }
+  document.getElementById('bestsub').textContent =
+    `${DIR==='return'?'按抵达深圳日期约束后，':''}跨 4 条走廊比较可用组合。数据依据会区分“经验推算”“实测+经验”和“实测为主”。同类日期结果相同代表模型没有证据区分这些日期。`;
+  let html = '<table class="data"><thead><tr><th>出发</th><th>走哪条</th><th>预计耗时</th><th>到达</th><th>相对畅通</th><th>过路费</th><th>数据依据</th></tr></thead><tbody>';
+  list.slice(0,10).forEach((w,i)=>{
+    const co = coById(w.corridor);
+    const rec = co && co.recommended;
+    html += `<tr class="${i===0?'hi':''}">
+      <td><b>${w.date.slice(5)}</b> ${w.weekday_cn} ${String(w.hour).padStart(2,'0')}:00</td>
+      <td><span class="co"><span class="dot" style="background:${coColor(co)}"></span><span class="coname">${esc(w.corridor_short||'')}</span></span>
+        ${rec?'<span class="pill rec">推荐</span>':''}</td>
+      <td><b>${w.est_h}</b> 小时</td>
+      <td>${hm(w.arrive)}${w.overnight?' <span class="pill">跨夜</span>':''}</td>
+      <td>${w.vs_freeflow}×</td>
+      <td>${w.free_toll?'<span class="pill free">免费</span>':'<span class="pill">收费</span>'}</td>
+      <td><span class="pill ${w.basis==='实测为主'?'':'est'}">${w.basis}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  box.innerHTML = html;
+  renderBestPerCorridor(x);
+}
+
+function renderBestPerCorridor(x){
+  const box = document.getElementById('bestPerCo');
+  const cos = corridors().slice();
+  const rows = cos.map(c=>{
+    const b = (c.best||[])[0];
+    return { c, b };
+  }).filter(r=>r.b);
+  if (!rows.length){ box.innerHTML = '<p class="note">暂无。</p>'; return; }
+  // 按各走廊最优窗口的耗时排序
+  rows.sort((a,b)=>a.b.est_min - b.b.est_min);
+  const fastestMin = rows[0].b.est_min;
+  let html = '<table class="data"><thead><tr><th>走廊</th><th>定位</th><th>最优出发</th><th>预计耗时</th><th>到达</th><th>过路费</th><th>比全局最优慢</th><th>数据依据</th></tr></thead><tbody>';
+  rows.forEach(({c,b})=>{
+    const gap = Math.round(b.est_min - fastestMin);
+    html += `<tr class="${c.id===x.fastest_now?'hi':''} ${c.recommended?'rec':''}">
+      <td><span class="co"><span class="dot" style="background:${coColor(c)}"></span><span class="coname">${c.recommended?'★ ':''}${esc(c.short)}</span></span></td>
+      <td>${c.recommended?'<span class="pill rec">推荐</span>':'<span class="pill">备选</span>'}</td>
+      <td><b>${b.date.slice(5)}</b> ${b.weekday_cn} ${String(b.hour).padStart(2,'0')}:00</td>
+      <td><b>${b.est_h}</b> 小时</td>
+      <td>${hm(b.arrive)}${b.overnight?' <span class="pill">跨夜</span>':''}</td>
+      <td>${b.free_toll?'<span class="pill free">免费</span>':'<span class="pill">收费</span>'}</td>
+      <td>${gap<=0 ? '最快' : '+' + gap + ' 分'}</td>
+      <td><span class="pill ${b.basis==='实测为主'?'':'est'}">${b.basis}</span></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  html += '<p class="note" style="margin-top:10px">注意：当前各走廊的「畅通基准」还只由单次采样反推，走廊之间的基准差异偏噪声。'
+    + '等每个小时都攒到几条真实采样后，这里才会变成可信的横向对比。</p>';
+  box.innerHTML = html;
+}
+
+// ---- 分段 ----
+function renderSegTabs(x){
+  const box = document.getElementById('segTabs');
+  box.innerHTML = corridors().map(c=>
+    `<button aria-pressed="${SEG_CO===c.id}" onclick="pickCorridor('${c.id}','seg')">${esc(c.short)}</button>`).join('');
+}
+
+function renderSegMatrix(x){
+  const cos = corridors();
+  const n = (cos[0] && cos[0].bins) ? cos[0].bins.length : 0;
+  const box = document.getElementById('segMatrix');
+  if (!n){ box.innerHTML = '<p class="note">等待 45 分钟内的成功采样。</p>'; return; }
+  let html = '<table><thead><tr><th></th>';
+  for (let i=1;i<=n;i++) html += `<th>${i}</th>`;
+  html += '<th>全程均速</th></tr></thead><tbody>';
+  cos.forEach(c=>{
+    html += `<tr><td class="lab"><span class="dot" style="background:${coColor(c)};display:inline-block;margin-right:5px"></span>${esc(c.short)}</td>`;
+    const bins = c.bins || [];
+    bins.forEach(b=>{
+      const spd = b.spd;
+      const tip = `#${b.i} ${b.road||''}（${Math.round(b.km0)}–${Math.round(b.km1)} km）\n均速 ${spd!=null?spd:'—'} km/h\n效率 ${b.eff!=null?b.eff:'—'}${b.mix?'\n'+Object.entries(b.mix).map(([k,v])=>k+' '+Math.round(v*100)+'%').join(' · '):''}`;
+      html += `<td><span class="mc" style="background:${speedColor(spd)}" title="${esc(tip)}"></span></td>`;
+    });
+    for (let i=bins.length;i<n;i++) html += '<td></td>';
+    const sp = (c.now && c.now.speed_kmh) ? c.now.speed_kmh : '—';
+    html += `<td class="lab" style="text-align:left;padding-left:10px">${sp} km/h</td></tr>`;
+  });
+  html += '</tbody></table>';
+  html += `<p class="note" style="margin-top:8px">每一列是「全程第 i/20 段」—— 按里程比例对齐，所以不同里程的走廊也能横向比。
+    颜色＝该段均速：<span class="pill" style="background:#4E9E5B;color:#fff">≥90</span>
+    <span class="pill" style="background:#D9C256">60–90</span>
+    <span class="pill" style="background:#D9604F;color:#fff">&lt;40 km/h</span>。</p>`;
+  box.innerHTML = html;
+}
+
+function renderStrip(x){
+  const c = coById(SEG_CO);
+  const strip = document.getElementById('strip');
+  document.getElementById('bandTitle').textContent = c ? ('实时路况色带 · ' + c.short) : '实时路况色带';
+  const bins = (c && c.bins) || [];
+  if (!bins.length){
+    strip.innerHTML = '<span style="padding:5px 10px;font-size:12px;color:#6B6B70">暂无有效实时路况</span>';
+    document.getElementById('stripLegend').innerHTML = '<span>过期数据已隐藏</span>';
+    document.getElementById('roadlist').innerHTML = '<span>等待下一次成功采集。</span>';
+    return;
+  }
+
+  // 按里程占比堆叠：一段里有多少畅通、多少缓行…全部如实画出来。
+  // 只取「占比最高的状态」会把 48% 畅通 + 52% 拥堵的段画成纯绿，等于隐瞒。
+  strip.innerHTML = bins.map(b=>{
+    const mix = b.mix || {};
+    const st = domStatus(mix);
+    const mixTxt = Object.entries(mix).map(([k,v])=>`${k} ${Math.round(v*100)}%`).join(' · ');
+    const tip = `#${b.i} ${b.road||''}（${Math.round(b.km0)}–${Math.round(b.km1)} km）\n`
+      + `均速 ${b.spd!=null?b.spd:'—'} km/h · ${b.min!=null?b.min+' 分钟':'—'}`
+      + (mixTxt ? `\n${mixTxt}` : '\n（高德未返回该段路况色带）');
+    let inner;
+    if (Object.keys(mix).length){
+      inner = STATUS_ORDER.filter(k=>mix[k]).map(k=>
+        `<span style="display:block;flex:${mix[k]};background:${STATUS_COLOR[k]||'#C9C7C1'}"></span>`).join('');
+    } else {
+      inner = `<span style="display:block;flex:1;background:${speedColor(b.spd)}"></span>`;
+    }
+    return `<div style="flex:${b.dist||1};display:flex" title="${esc(tip)}">${inner}</div>`;
+  }).join('');
+
+  const roads = [...new Set(bins.map(b=>b.road).filter(Boolean))];
+  document.getElementById('roadlist').innerHTML =
+    '<span>途经：</span>' + roads.map(r=>`<span><b>${esc(r)}</b></span>`).join('');
+
+  // 色带图例（只列出实际出现过的状态）
+  const seen = new Set();
+  bins.forEach(b=>Object.keys(b.mix||{}).forEach(k=>{ if(b.mix[k]>=0.02) seen.add(k); }));
+  const hasSpeedFallback = bins.some(b=>!Object.keys(b.mix||{}).length);
+  document.getElementById('stripLegend').innerHTML =
+    STATUS_ORDER.filter(k=>seen.has(k)).map(k=>
+      `<span><i style="background:${STATUS_COLOR[k]}"></i>${k}</span>`).join('')
+    + (hasSpeedFallback ? `<span><i style="background:${speedColor(90)}"></i>无官方色带，按均速着色</span>` : '');
+
+  const t = x.trip || {};
+  document.getElementById('axis0').textContent = t.origin_name || '起点';
+  document.getElementById('axis1').textContent = t.destination_name || '终点';
+}
+
+function renderSegTable(x){
+  const box = document.getElementById('segtable');
+  const c = coById(SEG_CO);
+  const segs = ((c && c.segments) || []).slice();
+  if (!segs.length){ box.innerHTML = '<p class="note">暂无可与同时段历史比较的有效分段数据。</p>'; return; }
+  const withDelta = segs.filter(s=>s.delta!=null);
+  const hot = withDelta.slice().sort((a,b)=>b.delta-a.delta).slice(0,6);
+  let html = '<h3>比平常更堵的断面' + (c ? ' · ' + esc(c.short) : '') + '</h3>';
+  html += '<table class="data"><thead><tr><th>断面</th><th>路段</th><th>里程</th><th>近期</th><th>平常</th><th>比平常</th><th>均速</th></tr></thead><tbody>';
+  const list = hot.length ? hot : segs.slice(0,6);
+  list.forEach(s=>{
+    const dt = s.delta==null ? '—' : (s.delta>0?'+':'')+s.delta+'%';
+    const col = s.delta==null ? '' : (s.delta>8?'color:#A22C2C;font-weight:600':s.delta>2?'color:#8A5C0E':'color:#0F6E56');
+    html += `<tr>
+      <td>#${s.i}</td><td>${esc(s.road||'—')}</td>
+      <td>${s.km0!=null?Math.round(s.km0)+'–'+Math.round(s.km1)+' km':'—'}</td>
+      <td>${s.recent!=null?(s.recent*100).toFixed(1)+' 分/百公里':'—'}</td>
+      <td>${s.base!=null?(s.base*100).toFixed(1)+' 分/百公里':'—'}</td>
+      <td style="${col}">${dt}</td>
+      <td>${s.spd!=null?s.spd+' km/h':'—'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  if (!withDelta.length){
+    html += '<p class="note" style="margin-top:10px">还没有历史基线可比。累积几天采样后，这里会直接告诉你哪几段比平常更堵。</p>';
+  } else {
+    html += '<p class="note" style="margin-top:10px">“近期”取最新一次成功快照；“平常”只取相同日期类型且前后 1 小时内的历史样本，统一换算成分/百公里。</p>';
+  }
+  box.innerHTML = html;
+}
+
+// ---- 趋势 ----
+function renderTrend(x){
+  const cos = corridors();
+  const base = cos.find(c=>c.recommended) || cos[0];
+  const tsList = ((base && base.trend) || []).map(t=>t.ts);
+  const labels = tsList.map(t=>t.slice(5,16).replace('T',' '));
+  const datasets = cos.map(c=>{
+    const map = {}; (c.trend||[]).forEach(t=>map[t.ts]=Math.round(t.duration_min));
+    const vals = tsList.map(ts=> map[ts]!=null ? map[ts]/60 : null);
+    // 降采样：点太多时按比例抽稀
+    return { label:c.short, data:vals, borderColor:coColor(c), backgroundColor:coColor(c),
+             borderWidth:c.recommended?2.4:1.8, pointRadius:0, tension:.25, spanGaps:true };
+  });
+  const free = (base && base.baseline) ? base.baseline.freeflow_min : null;
+  if (free) datasets.push({ label:'推荐走廊畅通基准', data:labels.map(()=>free/60),
+    borderColor:'#4E9E5B', borderWidth:1.5, borderDash:[5,4], pointRadius:0, fill:false });
+
+  if (charts.trend) charts.trend.destroy();
+  charts.trend = new Chart(document.getElementById('trendChart'), {
+    type:'line',
+    data:{ labels, datasets },
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label:c=> c.parsed.y==null?null:`${c.dataset.label} ${c.parsed.y.toFixed(2)} 小时` } } },
+      scales:{
+        y:{ ticks:{ callback:v=>v.toFixed(0)+'h' }, grid:{color:'rgba(0,0,0,.06)'} },
+        x:{ ticks:{ maxTicksLimit:10, autoSkip:true, maxRotation:0 }, grid:{display:false} }
+      } }
+  });
+  document.getElementById('trendLegend').innerHTML =
+    cos.map(c=>`<span><i style="background:${coColor(c)}"></i>${esc(c.short)}</span>`).join('') +
+    (free?'<span><i style="background:#4E9E5B"></i>畅通基准</span>':'');
+}
+
+function renderNotes(x, cov){
+  const rec = coById(x.recommended_id) || {};
+  const bl = rec.baseline || {};
+  const notes = [];
+  notes.push(`采样 <b>${cov.records||0}</b> 条，覆盖 <b>${cov.days||0}</b> 天、<b>${cov.hours_covered||0}/24</b> 个小时，基线成熟度 <b>${Math.round((cov.maturity||0)*100)}%</b>。`);
+  notes.push('监测 <b>4 条候选走廊</b>：1 条推荐 + 3 条备选。去程和返程分别使用对应方向的高速主线路点；路线版本变化后，旧数据自动隔离。');
+  notes.push('时段因子用<b>收缩估计</b>：<code>(n × 实测 + K × 先验) ÷ (n + K)</code>，K 取 '
+    + (bl.prior_k||6) + '。即同一个小时采到 ' + (bl.prior_k||6)
+    + ' 条记录时实测与先验等权；采样越多，先验被压得越扁，曲线越贴合这条线。');
+  notes.push('先验振幅按里程位置衰减：起终点 ' + (bl.urban_km||60) + ' km 内按城市振幅（100%），中间纯高速段只保留 '
+    + Math.round((bl.rural_amp||0.22)*100) + '%。推荐走廊全程平均振幅 <b>'
+    + (bl.avg_amp!=null?bl.avg_amp:'—') + '</b>。不这么做会推出「凌晨 2 点 5 小时跑完 600 公里」这种结论 —— '
+    + '均速 118 km/h，含粤北隧道群，物理上不可能。');
+  if (x.model_note) notes.push(esc(x.model_note));
+  notes.push('高德基础接口不会直接返回本项目所需的固定路线个人历史序列。这里的“平常”由本项目自行采样累积，不是高德官方历史数据。');
+  notes.push('分段只在同一条走廊、同一路线版本内做历史比较。不同走廊之间的第 i/20 段只表示相对行程位置，不能当成同一条道路。路段名取自高德返回字段，可能与路牌略有差异。');
+  notes.push('高速免费以<b>驶离收费站</b>的时间为准。页面目前用预计抵达目的地时间近似判断，通常偏保守；临近免费时段边界时请以导航中的收费站预计通过时间为准。');
+  notes.push('想调走廊集合或途经点：改 <code>config.yaml</code> 里的 <code>corridors</code>，下一轮采集自动生效。');
+  document.getElementById('notes').innerHTML =
+    '<h2>数据说明</h2><ul>' + notes.map(n=>`<li>${n}</li>`).join('') + '</ul>';
+
+  document.getElementById('foot').innerHTML =
+    `生成于 ${hm(DATA.generated_at)} · 本页数据仅供个人出行参考，不作为导航依据 · 请遵守高德开放平台服务条款，勿对外转发路况数据`;
+}
+
+// ---- 启动 ----
+function loadData(){
+fetch('./data.json?t=' + Date.now())
+  .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+  .then(j=>{
+    DATA = j;
+    if ((!j.outbound || !j.outbound.corridors) && j.return && j.return.corridors) setDir('return');
+    else render();
+  })
+  .catch(e=>{
+    document.getElementById('subtitle').textContent = '读取 data.json 失败：' + e.message;
+    document.getElementById('banner').className = 'banner on';
+    document.getElementById('banner').innerHTML =
+      '这个页面需要通过 HTTP 打开（直接双击文件会被浏览器的本地文件安全策略拦住）。<br>在本目录执行 <code>python3 -m http.server 8000</code>，然后访问 http://localhost:8000/';
+  })
+  .finally(()=>setTimeout(loadData, 5*60*1000));
+}
+loadData();
+</script>
+</body>
+</html>

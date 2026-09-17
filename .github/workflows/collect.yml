@@ -1,0 +1,102 @@
+name: 采集路况
+
+# GitHub 每 15 分钟唤醒一次；collect.py --if-due 再按 config.yaml 的
+# 平常档/密集档判断本轮是否需要调用高德。
+#
+# 两点要知道：
+# 1. GitHub 的定时任务在整点前后会因为排队而延迟几分钟，这是正常的，不影响趋势。
+# 2. 仓库连续 60 天没有任何提交，GitHub 会自动停用定时任务。本工作流每跑一次
+#    都会提交一次数据，所以只要在跑就不会被停用；但如果中途停很久，记得回来看一眼。
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# 上一次还没跑完就不要再起一个，避免并发写同一个文件
+concurrency:
+  group: collect-route
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        id: dependencies
+        run: pip install -r requirements.txt
+
+      - name: 检查密钥是否配置
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_KEY }}
+        run: |
+          if [ -z "$AMAP_KEY" ]; then
+            echo "::error::还没有配置 AMAP_KEY。请到仓库 Settings → Secrets and variables → Actions 添加名为 AMAP_KEY 的密钥。"
+            exit 1
+          fi
+
+      - name: 采集（4 条候选走廊 × 去程 + 返程）
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_KEY }}
+        run: python src/collect.py --if-due
+
+      - name: 分析（各走廊基线 / 分段对比 / 出发窗口 / 走廊横向对比）
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: python src/analyze.py
+
+      - name: iPhone 路况提醒（可选 Bark）
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          BARK_URL: ${{ secrets.BARK_URL }}
+          DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+        run: python src/notify.py
+
+      - name: 更新路线缩略图（路线版本 / 途经点变化时才重新请求）
+        continue-on-error: true
+        env:
+          AMAP_KEY: ${{ secrets.AMAP_KEY }}
+        run: python src/thumb_map.py --if-stale
+
+      - name: 提交数据
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: |
+          git config user.name "route-bot"
+          git config user.email "route-bot@users.noreply.github.com"
+          git add data web/data.json web/corridors-thumb-*
+          if git diff --staged --quiet; then
+            echo "数据无变化，跳过提交"
+          else
+            git commit -m "data: 路况采样 $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
+
+      - name: 打包手机看板
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    needs: collect
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 发布到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

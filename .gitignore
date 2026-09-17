@@ -1,0 +1,20 @@
+# 密钥：绝对不要提交
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 系统
+.DS_Store
+
+# 版式自检用的临时截图（tests/shot.js 产出，不必提交）
+tests/shot-*.png
+tests/shot.png
+
+# 采集到的原始数据体积会慢慢长大。
+# 如果你打算长期跑，想保持仓库轻量，可以放开下面这行，
+# 但放开后就不能用 git 历史当作数据备份了。
+# data/raw/

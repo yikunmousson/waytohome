@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>路线地理视图 · 深圳西丽 ↔ 衡阳</title>
+<style>
+:root{--bg:#F6F6F4;--card:#fff;--line:#E7E5E0;--ink:#1D1D1F;--ink2:#6B6B70;--ink3:#9C9C9F}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB",system-ui,sans-serif;font-size:14px}
+.layout{display:flex;height:100vh;align-items:stretch}
+#map{flex:1 1 auto;min-width:0;height:100vh}
+.side{width:320px;flex:0 0 320px;height:100vh;overflow-y:auto;background:var(--card);
+  border-left:1px solid var(--line);padding:18px 18px 30px}
+h1{font-size:16px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--ink2);font-size:12px;margin:0 0 14px}
+.tabs{display:inline-flex;background:#EFEEEB;border-radius:9px;padding:3px;gap:2px;margin-bottom:14px}
+.tabs button{border:0;background:transparent;font:inherit;font-size:12px;color:var(--ink2);padding:5px 14px;border-radius:7px;cursor:pointer}
+.tabs button[aria-pressed="true"]{background:#fff;color:var(--ink);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--ink2);margin-bottom:14px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
+.seg{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #F3F1ED;font-size:12px}
+.seg:last-child{border-bottom:0}
+.seg .sw{width:8px;height:8px;border-radius:2px;flex:0 0 8px}
+.seg .nm{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seg .km{color:var(--ink3);font-variant-numeric:tabular-nums}
+.note{font-size:11px;color:var(--ink3);line-height:1.8;margin-top:16px}
+.err{background:#FDF2F0;border:1px solid #F2D6D1;color:#8C3A2E;border-radius:10px;padding:10px 12px;font-size:12px;display:none}
+.err.on{display:block}
+@media (max-width:820px){.layout{flex-direction:column}.side{width:auto;flex:0 0 auto;height:auto;border-left:0;border-top:1px solid var(--line)}#map{height:56vh;flex:0 0 56vh}}
+</style>
+<script type="text/javascript">
+  // 腾讯地图 GL JS 代理模式：前端不落任何 Key，由 WorkBuddy 运行时代管。
+  // 这两个占位符必须原样保留，不要替换成具体值。
+  window._TMapSecurityConfig = {
+    serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
+  };
+</script>
+<script src="https://map.qq.com/api/gljs?v=1.exp"></script>
+</head>
+<body>
+<div class="layout">
+  <div id="map"></div>
+  <aside class="side">
+    <h1>路线地理视图</h1>
+    <p class="sub" id="sub">加载中…</p>
+    <div class="tabs">
+      <button id="t-out" aria-pressed="true" onclick="setDir('outbound')">去程</button>
+      <button id="t-ret" aria-pressed="false" onclick="setDir('return')">返程</button>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="legend" id="legend"></div>
+    <div id="segs"></div>
+    <p class="note">
+      线条颜色取自高德返回的分段路况。地图底图由腾讯位置服务提供。<br>
+      这个页面依赖 WorkBuddy 的本地代理，只在 WorkBuddy 预览窗口里可用。
+      若要部署到公网，需要在腾讯位置服务控制台申请自己的 Key，并配置 Referer 白名单。
+    </p>
+  </aside>
+</div>
+
+<script>
+const SC = { '畅通':'#4E9E5B', '缓行':'#D9A036', '拥堵':'#D9604F', '严重拥堵':'#A22C2C', '未知':'#C9C7C1' };
+let DATA = null, DIR = 'outbound', map = null, lineLayer = null, markerLayer = null;
+
+function domStatus(mix){
+  let best='未知', bv=-1;
+  for (const k in (mix||{})) if (mix[k]>bv){ bv=mix[k]; best=k; }
+  return best;
+}
+function segColor(bins, i){ return SC[domStatus(bins[i].status_mix)] || '#C9C7C1'; }
+
+function initMap(){
+  map = new TMap.Map('map', {
+    zoom: 7,
+    center: new TMap.LatLng(24.7, 113.3),
+  });
+}
+
+function draw(dir){
+  const d = DATA[dir];
+  if (!d || !d.polyline){ return false; }
+  const pts = d.polyline;                 // [[lng,lat], ...] GCJ02
+  const bins = d.bins || [];
+  const cum = d.cum_km || [];
+
+  if (lineLayer) lineLayer.setMap(null);
+  if (markerLayer) markerLayer.setMap(null);
+
+  // 按分段切点串，每段一个样式
+  const styles = {};
+  const geometries = [];
+  const n = bins.length;
+  for (let i=0;i<n;i++){
+    const b = bins[i];
+    const color = segColor(bins, i);
+    const sid = 's' + color.replace('#','');
+    styles[sid] = new TMap.PolylineStyle({
+      color: color, width: 7, borderWidth: 1, borderColor: '#FFFFFF', lineCap: 'round',
+    });
+    const s = b.start_km, e = b.end_km;
+    const paths = [];
+    for (let k=0;k<pts.length;k++){
+      if (cum[k] >= s - 0.05 && cum[k] <= e + 0.05) paths.push(new TMap.LatLng(pts[k][1], pts[k][0]));
+    }
+    if (paths.length >= 2){
+      geometries.push({ id: 'seg' + (i+1), styleId: sid, paths: paths });
+    }
+  }
+
+  lineLayer = new TMap.MultiPolyline({ map, styles, geometries });
+
+  const pin = (fill) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="32" viewBox="0 0 24 32">' +
+    '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20c0-6.6-5.4-12-12-12z" fill="' + fill + '"/>' +
+    '<circle cx="12" cy="12" r="4.5" fill="#ffffff"/></svg>');
+
+  markerLayer = new TMap.MultiMarker({
+    map,
+    styles: {
+      start: new TMap.MarkerStyle({ width: 22, height: 30, anchor: { x: 11, y: 30 }, src: pin('#1F5FA8') }),
+      end: new TMap.MarkerStyle({ width: 22, height: 30, anchor: { x: 11, y: 30 }, src: pin('#8C3A2E') }),
+    },
+    geometries: [
+      { id: 'start', styleId: 'start', position: new TMap.LatLng(pts[0][1], pts[0][0]) },
+      { id: 'end', styleId: 'end', position: new TMap.LatLng(pts[pts.length-1][1], pts[pts.length-1][0]) },
+    ],
+  });
+
+  const fit = new TMap.LatLngBounds();
+  pts.forEach(p => fit.extend(new TMap.LatLng(p[1], p[0])));
+  map.fitBounds(fit, { padding: 40 });
+  return true;
+}
+
+function renderSide(dir){
+  const d = DATA[dir];
+  if (!d){ return; }
+  document.getElementById('sub').textContent =
+    d.trip.origin_name + ' → ' + d.trip.destination_name + ' · ' +
+    d.now.distance_km + ' 公里 · 现在出发约 ' + (d.now.duration_min/60).toFixed(1) + ' 小时';
+
+  const used = [...new Set((d.bins||[]).map(b=>domStatus(b.status_mix)))];
+  document.getElementById('legend').innerHTML = used.map(k =>
+    '<span><i style="background:' + (SC[k]||'#C9C7C1') + '"></i>' + k + '</span>').join('');
+
+  document.getElementById('segs').innerHTML = (d.bins||[]).map(b => {
+    const col = SC[domStatus(b.status_mix)] || '#C9C7C1';
+    const mix = Object.entries(b.status_mix||{})
+      .sort((a,c)=>c[1]-a[1]).map(([k,v]) => Math.round(v*100) + '%' + k).join(' · ');
+    return '<div class="seg"><span class="sw" style="background:' + col + '"></span>' +
+      '<span class="nm">#' + b.index + ' ' + (b.road || '—') + '</span>' +
+      '<span class="km">' + Math.round(b.speed_kmh || 0) + 'km/h</span></div>' +
+      '<div style="font-size:11px;color:#9C9C9F;margin:-2px 0 6px 16px">' + mix + '</div>';
+  }).join('');
+}
+
+function setDir(dir){
+  DIR = dir;
+  document.getElementById('t-out').setAttribute('aria-pressed', dir === 'outbound');
+  document.getElementById('t-ret').setAttribute('aria-pressed', dir === 'return');
+  if (!DATA) return;
+  renderSide(dir);
+  if (map) draw(dir);
+}
+
+fetch('./data.json?t=' + Date.now())
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(j => {
+    DATA = j;
+    if (!j.outbound && j.return) DIR = 'return';
+    const d = j[DIR];
+    if (!d || !d.polyline){
+      document.getElementById('sub').textContent = '还没有路线几何数据，先跑一次采集。';
+      return;
+    }
+    renderSide(DIR);
+    try { initMap(); draw(DIR); }
+    catch (e) {
+      const el = document.getElementById('err');
+      el.className = 'err on';
+      el.textContent = '地图初始化失败：' + e.message + '（这个页面需要在 WorkBuddy 预览窗口里打开才能用地图代理）';
+    }
+  })
+  .catch(e => {
+    document.getElementById('sub').textContent = '读取 data.json 失败：' + e.message;
+  });
+</script>
+</body>
+</html>

@@ -86,12 +86,20 @@ jobs:
           fi
 
       - name: 打包手机看板
+        if: ${{ vars.ENABLE_PAGES == 'true' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: web
 
   deploy:
     needs: collect
+    # 私有仓库 + 免费账号不支持 GitHub Pages，硬跑会 404 失败，
+    # 而本工作流 15 分钟一轮 —— 等于每 15 分钟刷一次红叉，把「采集到底成没成」
+    # 这个信号淹掉。所以默认不跑（用仓库变量当开关，不开就不出现）。
+    #
+    # 想用手机看板：把仓库改成公开（或升级账号），然后
+    # Settings → Secrets and variables → Actions → Variables 加 ENABLE_PAGES=true。
+    if: ${{ vars.ENABLE_PAGES == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

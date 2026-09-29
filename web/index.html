@@ -22,7 +22,7 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
   font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
 }
-.wrap{max-width:1060px;margin:0 auto;padding:30px 22px 90px}
+.wrap{max-width:1200px;margin:0 auto;padding:30px 22px 90px}
 h1{font-size:24px;font-weight:600;margin:0 0 6px;letter-spacing:-.2px}
 h2{font-size:16px;font-weight:600;margin:0 0 4px}
 h3{font-size:14px;font-weight:600;margin:18px 0 6px;color:var(--ink2)}
@@ -82,16 +82,24 @@ table.data tr.rec td:first-child{box-shadow:inset 3px 0 0 var(--c0)}
 .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--ink3);margin-top:6px}
 .roadlist{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--ink2)}
 .roadlist span b{color:var(--ink);font-weight:500}
-.maprow{display:grid;grid-template-columns:330px minmax(0,1fr);gap:24px;margin-top:14px;align-items:start}
+.route-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;margin-top:16px;align-items:start}
+.route-table{min-width:0}
+.route-map{margin:0;padding-left:24px;border-left:1px solid var(--line)}
 .mapwrap{background:#FAFAF8;border:1px solid var(--line);border-radius:12px;padding:8px}
 .mapwrap img{width:100%;height:auto;display:block;border-radius:8px}
-.mapside{display:flex;flex-direction:column;gap:11px}
-.mlg{display:flex;gap:9px;align-items:flex-start;font-size:13px}
-.mlg i{flex:none;width:22px;height:5px;border-radius:3px;margin-top:8px}
-.mlg i.dot{width:9px;height:9px;border-radius:50%;margin-top:6px}
-.mlg .mhd{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline}
-.mlg .mhd em{font-style:normal;font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
-.mlg span{display:block;font-size:11.5px;color:var(--ink3);line-height:1.5;margin-top:2px}
+.route-map figcaption{font-size:12px;color:var(--ink2);margin-top:10px}
+#cotable table.data{margin-top:0}
+#cotable th,#cotable td{padding:9px 7px}
+#cotable td{white-space:nowrap}
+.route-details{margin-top:12px;font-size:13px}
+.route-details summary{cursor:pointer;color:var(--accent)}
+.route-details p{overflow-wrap:anywhere}
+@media (max-width:1000px){
+  .route-layout{grid-template-columns:1fr}
+  .route-map{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}
+  .mapwrap{max-width:340px;margin:0 auto}
+  .route-map figcaption{text-align:center}
+}
 .chart canvas{max-width:100%}.chart{position:relative;height:290px;margin-top:14px}
 .chart.tall{height:330px}
 .matrix{margin-top:12px;overflow-x:auto}
@@ -111,7 +119,6 @@ a{color:var(--accent)}
   .m .val{font-size:22px}
   .cell{width:24px;height:22px}
     .conote{font-size:11px}
-    .maprow{grid-template-columns:1fr}
     .mapwrap{max-width:340px;margin:0 auto}
     .tabs.sel{margin-left:0}
   }
@@ -136,20 +143,22 @@ a{color:var(--accent)}
   <div class="banner" id="banner"></div>
 
   <div class="card" id="card-corridor">
-    <h2>六条路线，此刻谁最快</h2>
-    <p class="sub">4 条固定走廊 + 2 条无途经点动态备选。固定走廊采用速度优先，动态备选来自高德默认多方案，按当前耗时选前两条不同路径。仅使用 45 分钟内的成功采样。</p>
+    <h2>路线对比 · 耗时与走向</h2>
+    <p class="sub">4 条固定走廊 + 2 条无途经点动态备选，仅比较 45 分钟内的成功采样。</p>
     <div id="verdict"></div>
-    <div id="cotable"></div>
-  </div>
-
-  <div class="card" id="card-map">
-    <h2>四条走廊 · 空间走向</h2>
-    <p class="sub">把 4 条候选走廊叠在同一张底图上（高德静态图）。越往西＝绕得越远，但节假日可能反而更顺；一眼能看出哪几条在粤北分叉。</p>
-    <div class="maprow">
-      <div class="mapwrap" id="mapwrap"><img id="mapImg" alt="四条候选走廊路线缩略图" /></div>
-      <div class="mapside" id="mapSide"></div>
+    <div class="route-layout">
+      <div class="route-table">
+        <div id="cotable"></div>
+        <details class="route-details">
+          <summary>查看实际道路与路线对照</summary>
+          <div id="routeDetails"></div>
+        </details>
+      </div>
+      <figure class="route-map">
+        <div class="mapwrap" id="mapwrap"><img id="mapImg" alt="四条固定走廊路线示意图" /></div>
+        <figcaption>示意图与表格颜色对应，仅展示 4 条固定走廊；2 条动态备选未绘入图中。</figcaption>
+      </figure>
     </div>
-    <p class="note" id="mapNote" style="margin-top:14px"></p>
   </div>
 
   <div class="card" id="card-seg">
@@ -342,8 +351,6 @@ function renderCorridorTable(x){
     const bl = c.baseline || {};
     const isHi = c.id === fastest;
     const isRec = c.id === rec;
-    const comparison=n.comparison;
-    const comparisonText=comparison?`与 ${comparison.closest_short} 的粗网格重合 ${Math.round(comparison.grid_overlap*100)}%${comparison.similar?'（高度相似）':''}；里程差 ${comparison.distance_delta_km>0?'+':''}${comparison.distance_delta_km} km，耗时差 ${comparison.duration_delta_min>0?'+':''}${comparison.duration_delta_min} 分钟。仅作筛查，请核对道路。`:'';
     const basisTxt = n.ok ? ((c.rank===1) ? '<span class="pill win">本轮最快</span>' : '<span class="pill">第 '+c.rank+'</span>')
       : `<span class="pill">${n.stale?'已过期':'采集失败'}</span><div class="conote">${esc(n.error||'暂无新版路线数据')}${n.sampled_at?'<br>最近尝试 '+hm(n.sampled_at):''}</div>`;
     const gap = (c.gap_min==null) ? '—' : (c.gap_min<=0 ? '最快' : '+'+Math.round(c.gap_min)+' 分');
@@ -355,7 +362,6 @@ function renderCorridorTable(x){
       <td>
         <div class="co"><span class="dot" style="background:${coColor(c)}"></span>
           <span class="coname">${isRec?'★ ':''}${esc(c.short)}</span></div>
-        <div class="conote">${esc(c.name)}${c.note?'<br>'+esc(c.note):''}${c.dynamic?'<br>'+esc(comparisonText)+'<details><summary>查看实际道路</summary>'+esc((n.roads||[]).join(' → '))+'</details>':''}</div>
       </td>
       <td>${isRec?'<span class="pill rec">关注</span>':'<span class="pill">'+(c.dynamic?'动态':'备选')+'</span>'}</td>
       <td>${n.ok? n.distance_km+' km' : '—'}</td>
@@ -369,6 +375,11 @@ function renderCorridorTable(x){
   html += '</tbody></table>';
   html += '<p class="note" style="margin-top:10px">“现在耗时”是高德路径规划接口在采样时给出的预计行驶时间，不等同于车辆实际跑出的用时；超过 45 分钟自动失效。</p>';
   document.getElementById('cotable').innerHTML = html;
+  document.getElementById('routeDetails').innerHTML = '<p>固定走廊采用速度优先，动态备选从高德默认多方案中按耗时选取，实际路径可能随采样变化。</p>' + ordered.map(c=>{
+    const n=c.now||{}, comparison=n.comparison;
+    const comparisonText=comparison?`与 ${comparison.closest_short} 的近似重合度 ${Math.round(comparison.grid_overlap*100)}%${comparison.similar?'（高度相似）':''}；里程差 ${comparison.distance_delta_km>0?'+':''}${comparison.distance_delta_km} km，耗时差 ${comparison.duration_delta_min>0?'+':''}${comparison.duration_delta_min} 分钟。重合度仅供筛查。`:'';
+    return `<p><b style="color:${coColor(c)}">${esc(c.short)}</b><br>${esc(comparisonText)}${comparisonText?'<br>':''}${esc((n.roads||[]).join(' → ')||'暂无道路记录')}</p>`;
+  }).join('');
 }
 
 // ---- 空间走向缩略图 ----
@@ -399,31 +410,7 @@ function renderMap(x){
   img.alt = `${x.trip.origin_name} → ${x.trip.destination_name} 四条候选走廊路线图`;
   img.src = `${file}?t=${token}`;
 
-  const rows = (x.corridors || []).slice()
-    .sort((a, b) => (b.recommended ? 1 : 0) - (a.recommended ? 1 : 0) || (a.idx - b.idx));
-  const coRow = c => {
-    const n = c.now || {};
-    return `<div class="mlg">
-      <i style="background:${coColor(c)};${c.recommended ? 'height:7px;margin-top:7px' : ''}"></i>
-      <div>
-        <div class="mhd"><b>${c.recommended ? '★ ' : ''}${esc(c.short)}</b>
-          ${n.ok ? `<em>${n.distance_km} km · ${fmtH(n.duration_min)} h · ¥${Math.round(n.tolls || 0)}</em>` : ''}</div>
-        <span>${esc(c.note || c.name || '')}</span>
-      </div></div>`;
-  };
-  document.getElementById('mapSide').innerHTML =
-    rows.filter(c=>!c.dynamic).map(coRow).join('')
-    + `<div class="mlg"><i class="dot" style="background:#1D9E75"></i>
-         <div><div class="mhd"><b>起点</b></div><span>${esc(x.trip.origin_name)}</span></div></div>`
-    + `<div class="mlg"><i class="dot" style="background:#1D1D1F"></i>
-         <div><div class="mhd"><b>终点</b></div><span>${esc(x.trip.destination_name)}</span></div></div>`;
 
-  document.getElementById('mapNote').innerHTML =
-    '底图来自高德静态图 API（<code>v3/staticmap</code>），折线配色与上表、与下面各张图一致（默认关注走廊更粗、画在最上层）。'
-    + '高德静态图 <code>paths</code> 上限正好是 4 条线，此图仅展示原有 4 条固定走廊，动态备选不在图中；四条固定走廊画在同一张图上、共用一个缩放级别 —— '
-    + '拆成四张各自动缩放，反而看不出谁比谁更偏西。'
-    + 'Key 只在本机脚本里发出请求，不写进网页（前端放 Key 会被抓走）。'
-    + '几何缓存在 <code>data/geometry/</code>：路不会动，所以只有 <code>--refresh</code> 时才重抓。';
 }
 
 // ---- 日期 tabs ----

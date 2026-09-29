@@ -87,7 +87,7 @@ setTimeout(() => {
   if (failed) process.exit(1);
 
   // 只检查由 JS 渲染的区块（yTabs 等是页面里的静态 HTML，桩里拿不到）
-  const critical = ['title', 'subtitle', 'verdict', 'cotable', 'mapSide', 'mapNote',  'segTabs', 'segMatrix',
+  const critical = ['title', 'subtitle', 'verdict', 'cotable', 'routeDetails',  'segTabs', 'segMatrix',
                     'strip', 'stripLegend', 'roadlist', 'segtable', 'trendLegend', 'notes', 'foot'];
   const empty = critical.filter(id => {
     const el = touched.get(id);

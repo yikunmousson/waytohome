@@ -144,7 +144,7 @@ a{color:var(--accent)}
 
   <div class="card" id="card-corridor">
     <h2>路线对比 · 耗时与走向</h2>
-    <p class="sub">4 条固定走廊 + 2 条无途经点动态备选，仅比较 45 分钟内的成功采样。</p>
+    <p class="sub">4 条固定走廊 + 2 条无途经点动态备选，保留最近成功采样与累计历史；45 分钟内的数据参与当前排名。</p>
     <div id="verdict"></div>
     <div class="route-layout">
       <div class="route-table">
@@ -195,6 +195,8 @@ a{color:var(--accent)}
 <script>
 // Remove only the retired feature's storage.
 try { localStorage.removeItem('waytohome.manual.v1'); } catch (_) {}
+const CACHE_KEY = 'waytohome.samples.v1';
+let loadWarning = '';
 let DATA = null, DIR = 'outbound', charts = {};
 let SEL_DATE = 0, SEL_CO = null, HM_CO = '__best__', SEG_CO = null, YMODE = 'h';
 
@@ -258,6 +260,14 @@ function pickCorridor(id, kind){
   render();
 }
 
+// Historical values remain visible even when current ranking expires.
+function lastSample(c){
+  if(c.last_sample)return c.last_sample;
+  const n=c.now||{};
+  if(n.duration_min!=null)return n;
+  const t=(c.trend||[]).slice(-1)[0];
+  return t?{...t,sampled_at:t.ts}:{};
+}
 // Expire cached snapshots even when the collector has stopped.
 function expireCurrent(x){
   if (!x || !x.corridors) return;
@@ -290,7 +300,8 @@ function render(){
 
   const b = document.getElementById('banner');
   const mat = cov.maturity == null ? 0 : cov.maturity;
-  let banner = '';
+  let banner = loadWarning ? esc(loadWarning) : '';
+  banner += (banner?'<br>':'') + `已累计保存 <b>${cov.real||0}</b> 轮采样，覆盖 <b>${cov.days||0}</b> 天。`;
   if (mat < 0.6){
     banner += `基线正在积累中：已覆盖 <b>${cov.hours_covered||0}/24</b> 个小时（成熟度 <b>${Math.round(mat*100)}%</b>）。
       历史采样不足以可靠预测未来假期。这里只展示当前估算与历史采样。`;
@@ -298,7 +309,7 @@ function render(){
   const currentIssues = (x.corridors||[]).filter(c=>!(c.now||{}).ok);
   if (currentIssues.length){
     banner += (banner ? '<br>' : '') + `有 <b>${currentIssues.length}</b> 条走廊没有 45 分钟内的成功采样，
-      已从“现在最快”排名中排除。请看表格中的失败或过期原因。`;
+      已从当前排名中排除，表格仍保留最近成功采样，供历史参考。`;
   }
   if (cov.excluded_old_route){
     banner += (banner ? '<br>' : '') + `路线途经点已更新，<b>${cov.excluded_old_route}</b> 条旧路线记录已隔离，不会混入新基线。`;
@@ -330,7 +341,7 @@ function renderVerdict(x){
   const t = x.now_table || [];
   const best = t[0];
   const el = document.getElementById('verdict');
-  if (!best){ el.innerHTML = '<p class="note">本轮还没有可比的走廊数据。</p>'; document.getElementById('cotable').innerHTML=''; return; }
+  if (!best){ el.innerHTML = '<p class="note">当前没有新鲜采样，下表显示最近成功采样；这些耗时仅供历史参考。</p>'; document.getElementById('cotable').innerHTML=''; return; }
   const second = t[1];
   const gapTxt = second ? `比第二快的 <b>${esc(second.short)}</b> 快 <b>${Math.round(second.gap_min)} 分钟</b>` : '';
   const freeNow = '';
@@ -344,15 +355,16 @@ function renderCorridorTable(x){
   const t = x.now_table || [];
   const rec = x.recommended_id;
   const fastest = x.fastest_now;
-  let html = '<table class="data"><thead><tr><th>走廊</th><th>定位</th><th>里程</th><th>现在耗时</th><th>比最快</th><th>过路费</th><th>数据依据</th></tr></thead><tbody>';
+  let html = '<table class="data"><thead><tr><th>走廊</th><th>定位</th><th>里程</th><th>采样耗时</th><th>比最快</th><th>过路费</th><th>数据依据</th></tr></thead><tbody>';
   const ordered = (x.corridors||[]).slice();
   ordered.forEach(c=>{
     const n = c.now || {};
-    const bl = c.baseline || {};
+    const sample = n.ok ? n : lastSample(c);
+    const hasSample = sample.duration_min != null;
     const isHi = c.id === fastest;
     const isRec = c.id === rec;
     const basisTxt = n.ok ? ((c.rank===1) ? '<span class="pill win">本轮最快</span>' : '<span class="pill">第 '+c.rank+'</span>')
-      : `<span class="pill">${n.stale?'已过期':'采集失败'}</span><div class="conote">${esc(n.error||'暂无新版路线数据')}${n.sampled_at?'<br>最近尝试 '+hm(n.sampled_at):''}</div>`;
+      : `<span class="pill">${hasSample?'历史参考':(n.stale?'已过期':'采集失败')}</span><div class="conote">${hasSample?esc(hm(sample.sampled_at)):esc(n.error||'暂无采样')}</div>`;
     const gap = (c.gap_min==null) ? '—' : (c.gap_min<=0 ? '最快' : '+'+Math.round(c.gap_min)+' 分');
     // 差距条：以最慢为满格
     const maxGap = Math.max(1, ...ordered.map(o=>o.gap_min||0));
@@ -364,19 +376,19 @@ function renderCorridorTable(x){
           <span class="coname">${isRec?'★ ':''}${esc(c.short)}</span></div>
       </td>
       <td>${isRec?'<span class="pill rec">关注</span>':'<span class="pill">'+(c.dynamic?'动态':'备选')+'</span>'}</td>
-      <td>${n.ok? n.distance_km+' km' : '—'}</td>
-      <td>${n.ok? '<b>'+fmtH(n.duration_min)+'</b> 小时' : '—'}</td>
+      <td>${hasSample? sample.distance_km+' km' : '—'}</td>
+      <td>${hasSample? '<b>'+fmtH(sample.duration_min)+'</b> 小时' : '—'}</td>
       <td>${gap}
         <div class="bar"><i style="width:${barW}%;background:${barCol}"></i></div></td>
-      <td>${n.ok&&n.tolls!=null? '¥'+Math.round(n.tolls) : '—'}</td>
+      <td>${sample.tolls!=null? '¥'+Math.round(sample.tolls) : '—'}</td>
       <td>${basisTxt}</td>
     </tr>`;
   });
   html += '</tbody></table>';
-  html += '<p class="note" style="margin-top:10px">“现在耗时”是高德路径规划接口在采样时给出的预计行驶时间，不等同于车辆实际跑出的用时；超过 45 分钟自动失效。</p>';
+  html += '<p class="note" style="margin-top:10px">耗时为采样当时的高德估算。超过 45 分钟保留显示，但不参与当前排名；各行采样时间可能不同。</p>';
   document.getElementById('cotable').innerHTML = html;
   document.getElementById('routeDetails').innerHTML = '<p>固定走廊采用速度优先，动态备选从高德默认多方案中按耗时选取，实际路径可能随采样变化。</p>' + ordered.map(c=>{
-    const n=c.now||{}, comparison=n.comparison;
+    const n=lastSample(c), comparison=n.comparison;
     const comparisonText=comparison?`与 ${comparison.closest_short} 的近似重合度 ${Math.round(comparison.grid_overlap*100)}%${comparison.similar?'（高度相似）':''}；里程差 ${comparison.distance_delta_km>0?'+':''}${comparison.distance_delta_km} km，耗时差 ${comparison.duration_delta_min>0?'+':''}${comparison.duration_delta_min} 分钟。重合度仅供筛查。`:'';
     return `<p><b style="color:${coColor(c)}">${esc(c.short)}</b><br>${esc(comparisonText)}${comparisonText?'<br>':''}${esc((n.roads||[]).join(' → ')||'暂无道路记录')}</p>`;
   }).join('');
@@ -545,7 +557,7 @@ function renderTrend(x){
     const vals = tsList.map(ts=> map[ts]!=null ? map[ts]/60 : null);
     // 降采样：点太多时按比例抽稀
     return { label:c.short+(c.dynamic?'（动态选路）':''), data:vals, borderDash:c.dynamic?[5,4]:[], borderColor:coColor(c), backgroundColor:coColor(c),
-             borderWidth:c.recommended?2.4:1.8, pointRadius:0, tension:.25, spanGaps:false };
+             borderWidth:c.recommended?2.4:1.8, pointRadius:2, tension:.25, spanGaps:false };
   });
   const free = null;
   if (typeof Chart==='undefined') {document.getElementById('scene-summary').textContent+='。图表组件未加载，其他功能仍可使用。';return;}
@@ -582,23 +594,36 @@ function renderNotes(x, cov){
     `生成于 ${hm(DATA.generated_at)} · 本页数据仅供个人出行参考，不作为导航依据 · 请遵守高德开放平台服务条款，勿对外转发路况数据`;
 }
 
-// ---- 启动 ----
-function loadData(){
-fetch('./data.json?t=' + Date.now())
-  .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-  .then(j=>{
-    DATA = j;
-    if ((!j.outbound || !j.outbound.corridors) && j.return && j.return.corridors) setDir('return');
-    else render();
-  })
-  .catch(e=>{
-    document.getElementById('subtitle').textContent = '读取 data.json 失败：' + e.message;
-    document.getElementById('banner').className = 'banner on';
-    document.getElementById('banner').innerHTML =
-      '这个页面需要通过 HTTP 打开（直接双击文件会被浏览器的本地文件安全策略拦住）。<br>在本目录执行 <code>python3 -m http.server 8000</code>，然后访问 http://localhost:8000/';
-  })
-  .finally(()=>setTimeout(loadData, 5*60*1000));
+// ---- 启动：先显示已保存数据，再读取最新累计数据 ----
+function showData(j){
+  if(!j || ![j.outbound,j.return].some(x=>x&&Array.isArray(x.corridors)))throw new Error('数据格式不完整');
+  DATA=j;
+  if ((!j.outbound || !j.outbound.corridors) && j.return && j.return.corridors) setDir('return');
+  else render();
 }
+function loadData(){
+  fetch('./data.json?t=' + Date.now(), {cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(j=>{
+      loadWarning=(j.sync_status||{}).warning||'';
+      showData(j);
+      try{localStorage.setItem(CACHE_KEY,JSON.stringify(j));}catch(_){}
+    })
+    .catch(()=>{
+      loadWarning=DATA?'更新失败，正在显示已保存的累计数据，请留意采样时间。':'暂时无法读取数据，请确认本地看板服务已启动后刷新。';
+      if(DATA)render();
+      else{
+        document.getElementById('subtitle').textContent='暂无已保存的数据';
+        document.getElementById('banner').className='banner on';
+        document.getElementById('banner').textContent=loadWarning;
+      }
+    })
+    .finally(()=>setTimeout(loadData, 5*60*1000));
+}
+try{
+  const saved=localStorage.getItem(CACHE_KEY);
+  if(saved){loadWarning='正在显示已保存数据，并检查是否有更新。';showData(JSON.parse(saved));}
+}catch(_){}
 loadData();
 setInterval(()=>{if(DATA)render();},60000);
 </script>

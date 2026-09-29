@@ -117,6 +117,8 @@ class AnalysisTests(unittest.TestCase):
         self.assertEqual(result.get("now_table", []), [])
         self.assertFalse(result["corridors"][0]["now"]["ok"])
         self.assertTrue(result["corridors"][0]["now"]["stale"])
+        self.assertEqual(result["corridors"][0]["last_sample"]["sampled_at"], sampled)
+        self.assertEqual(result["corridors"][0]["last_sample"]["duration_min"], 120.0)
 
     def test_latest_failure_replaces_older_success(self):
         cfg = config()
@@ -131,6 +133,7 @@ class AnalysisTests(unittest.TestCase):
         self.assertFalse(now["ok"])
         self.assertEqual(now["sampled_at"], "2026-09-30T12:15:00+08:00")
         self.assertEqual(now["error"], "mock failure")
+        self.assertEqual(result["corridors"][0]["last_sample"]["sampled_at"], recs[0]["ts"])
 
 
 if __name__ == "__main__":

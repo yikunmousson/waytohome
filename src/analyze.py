@@ -694,6 +694,11 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
                 "roads": now_c.get("roads") or [],
                 "error": current_error,
             },
+            "last_sample": ({
+                **{key: latest["corridor"].get(key) for key in (
+                    "duration_min", "distance_km", "tolls", "roads", "comparison")},
+                "sampled_at": latest["rec"]["ts"],
+            } if latest else None),
             "reference": {
                 "duration_min": first.get("duration_min"),
                 "distance_km": first.get("distance_km"),

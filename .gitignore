@@ -9,6 +9,7 @@ venv/
 
 # 系统
 .DS_Store
+.preview-cache/
 
 # 版式自检用的临时截图（tests/shot.js 产出，不必提交）
 tests/shot-*.png

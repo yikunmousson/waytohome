@@ -1,4 +1,4 @@
-"""Analyze current route estimates and scene-separated history. Manual plans live in the browser."""
+"""Analyze current route estimates and scene-separated history."""
 
 import json
 import statistics

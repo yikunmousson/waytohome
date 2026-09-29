@@ -116,8 +116,7 @@ a{color:var(--accent)}
     .tabs.sel{margin-left:0}
   }
 
-#cotable,#segtable{overflow-x:auto} .card{min-width:0} .manual-scroll table{border-collapse:collapse;width:100%}.manual-scroll th,.manual-scroll td{padding:10px;text-align:left;border-bottom:1px solid var(--line)} .manual-scroll caption{text-align:left;padding:10px 0;font-size:13px} #scene-filter{max-width:100%;padding:8px}
-.manual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:16px 0}.manual-grid label{display:flex;flex-direction:column;gap:6px;font-size:13px}.manual-grid input,.manual-grid select{width:100%;min-width:0;padding:10px;border:1px solid #cdcac2;border-radius:7px;background:#fff;color:#292c30;font:inherit;box-sizing:border-box}.manual-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:16px 0}#card-manual button{padding:9px 14px;border:1px solid #bbc5ce;border-radius:7px;background:#fff;cursor:pointer}#card-manual #save-record{background:#1f5fa8;color:white;border-color:#1f5fa8}.manual-scroll{overflow:auto}.manual-scroll table{min-width:650px}.manual-scroll td{white-space:normal;max-width:300px;overflow-wrap:anywhere}.manual-best{background:#e0efdf}.manual-summary{padding:16px;background:#edf3fa;border-radius:8px}#manual-message{color:#994b26}summary{cursor:pointer}input[type=file]{max-width:100%}@media(max-width:650px){.manual-grid{grid-template-columns:1fr}.manual-scroll table{font-size:12px}.manual-actions{align-items:flex-start}}
+#cotable,#segtable{overflow-x:auto}.card{min-width:0}#scene-filter{max-width:100%;padding:8px}
 </style>
 </head>
 <body>
@@ -135,22 +134,6 @@ a{color:var(--accent)}
   </div>
 
   <div class="banner" id="banner"></div>
-
-  <section class="card" id="card-manual">
-    <h2>选择出发方案</h2>
-    <p class="sub">手动记录查询到的预测，比较走廊与出发时间。自动采样在下方独立展示。</p>
-    <p class="note">记录仅保存在当前浏览器，不会自动上传或跨设备同步。请导出备份；切换设备可导入。所有日期与时间均为北京时间。</p>
-    <form id="manual-form"><input id="record-id" type="hidden"><div class="manual-grid"><label>方向<select id="record-direction"><option value="outbound">去程</option><option value="return">返程</option></select></label><label>走廊<select id="record-corridor"><option value="leguang">广连—许广</option><option value="xuguang">许广 G0421</option><option value="jinggangao">京港澳 G4</option><option value="erguang">二广 G55</option><option value="unknown">待核验</option></select></label><label>预计出发时间（北京时间）<input id="record-depart" type="datetime-local" required></label><label>查询时间（北京时间）<input id="record-queried" type="datetime-local" required></label><label>行驶耗时（分钟）<input id="record-duration" type="number" required min="1" max="10080" step="any"></label><label>来源名称<input id="record-source" type="text" required maxlength="100" placeholder="例如高德 App"></label><label>主要道路 / 绕行说明<input id="record-roads" type="text" required maxlength="500"></label><label>费用（元，可不填）<input id="record-tolls" type="number" min="0" step="any"></label><label>备注（可不填）<input id="record-note" type="text" maxlength="1000"></label></div><div class="manual-actions"><button id="save-record" type="submit">保存记录</button><button id="cancel-record" type="button">取消编辑 / 清空</button></div></form>
-    <div class="manual-actions"><button id="export-records" type="button">导出备份</button><label>导入 JSON <input id="import-records" type="file" accept="application/json,.json"></label></div>
-    <div id="import-preview" hidden><p id="import-summary"></p><label>同 ID 冲突 <select id="import-policy"><option value="keep">保留本地版本</option><option value="replace">采用导入版本</option></select></label><button id="confirm-import" type="button">确认导入</button><button id="cancel-import" type="button">取消</button></div>
-    <p id="manual-message" role="status" aria-live="polite"></p>
-    <details open><summary>行程条件</summary><div id="manual-filters" class="manual-grid">
-      <label>最早出发<input id="filter-start" type="datetime-local"></label><label>最晚出发<input id="filter-end" type="datetime-local"></label><label>最晚抵达<input id="filter-arrival" type="datetime-local"></label>
-      <label>休息时间（分钟）<input id="filter-rest" type="number" min="0" value="0"></label><label>查询有效期（小时）<input id="filter-ttl" type="number" min="1" value="24"></label>
-    </div><p class="note">有效期用于提醒重新查询，不代表预测准确性。休息时间单独计入抵达时间。</p></details>
-    <p id="manual-summary" class="manual-summary"></p><div id="manual-matrix" class="manual-scroll"></div>
-    <h3>记录与查询依据</h3><div id="manual-records" class="manual-scroll"></div>
-  </section>
 
   <div class="card" id="card-corridor">
     <h2>四条走廊，此刻谁最快</h2>
@@ -199,10 +182,10 @@ a{color:var(--accent)}
   <p class="foot" id="foot"></p>
 </div>
 
-<script src="manual-model.js"></script>
-<script src="manual.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
+// Remove only the retired feature's storage.
+try { localStorage.removeItem('waytohome.manual.v1'); } catch (_) {}
 let DATA = null, DIR = 'outbound', charts = {};
 let SEL_DATE = 0, SEL_CO = null, HM_CO = '__best__', SEG_CO = null, YMODE = 'h';
 
@@ -257,7 +240,6 @@ function setDir(dir){
   SEL_DATE = 0; SEL_CO = null; HM_CO = '__best__'; SEG_CO = null;
   document.getElementById('tab-outbound').setAttribute('aria-pressed', dir==='outbound');
   document.getElementById('tab-return').setAttribute('aria-pressed', dir==='return');
-  if (window.renderManual) window.renderManual(dir);
   render();
 }
 function pickCorridor(id, kind){
@@ -302,7 +284,7 @@ function render(){
   let banner = '';
   if (mat < 0.6){
     banner += `基线正在积累中：已覆盖 <b>${cov.hours_covered||0}/24</b> 个小时（成熟度 <b>${Math.round(mat*100)}%</b>）。
-      历史采样不足以可靠预测未来假期。手动方案只比较已录入的数据。`;
+      历史采样不足以可靠预测未来假期。这里只展示当前估算与历史采样。`;
   }
   const currentIssues = (x.corridors||[]).filter(c=>!(c.now||{}).ok);
   if (currentIssues.length){
@@ -601,7 +583,6 @@ function renderNotes(x, cov){
   const notes = [
     `当前版本采样 ${cov.real||0} 条，覆盖 ${cov.days||0} 天、${cov.hours_covered||0}/24 个小时。`,
     '自动采样是高德对当时出发的估算。历史场景分别统计，样本不足时不外推未来国庆耗时。',
-    '手动预测记录仅在当前浏览器保存，缺失格不补值；预计抵达包含填写的休息时间，费用未知时不判断免费。',
     '分段比较只使用同走廊、同路线版本、同场景及相近小时的历史采样。默认关注走廊不代表最快。'
   ];
   document.getElementById('notes').innerHTML =

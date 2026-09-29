@@ -106,7 +106,7 @@ def ensure_geometry(client, cfg: dict, direction: str, trip: dict,
     strategy = collect_strategy(cfg)
     changed = False
 
-    for c in iter_corridors(trip):
+    for c in [c for c in iter_corridors(trip) if not c.get("dynamic")]:
         cid = c["id"]
         hit = out.get(cid)
         cache_matches = (
@@ -146,7 +146,7 @@ def ensure_geometry(client, cfg: dict, direction: str, trip: dict,
 def ordered_geometry(geoms: dict, trip: dict) -> list:
     """按 config 里的走廊顺序排好，并补上配色索引（与看板 PALETTE 对齐）。"""
     rows = []
-    for i, c in enumerate(iter_corridors(trip)):
+    for i, c in enumerate([c for c in iter_corridors(trip) if not c.get("dynamic")]):
         g = geoms.get(c["id"])
         if not g or not g.get("polyline"):
             continue

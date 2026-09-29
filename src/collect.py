@@ -1,10 +1,10 @@
 """单次采集：调高德，把「去程 + 返程」每一条候选走廊此刻的路况存下来。
 
 一次运行 = 每个方向一条 JSONL 记录，追加到 data/raw/YYYY-MM-DD.jsonl。
-每条记录里装着该方向全部候选走廊（1 推荐 + 3 备选）各自的快照。
+每条记录里装着该方向全部候选走廊（4 条固定走廊 + 2 条动态备选）各自的快照。
 
-    一轮调用数 = 走廊数 × 方向数（默认 4 × 2 = 8 次）
-    15 分钟一档 → 768 次/天，免费额度 5000 次/天，余量充足。
+    一轮调用数 = (4 条固定 + 1 次多方案) × 2 方向 = 10 次
+    15 分钟一档约 960 次/天，实际权限与配额以控制台为准。
 
 长时间跑下去，这些记录就是「历史基线」—— 高德不给历史，只能自己攒。
 
@@ -26,6 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from route_compare import grid_of_path, fingerprint, select_candidates, annotate_comparisons
 from lifecycle import project_active
 from calendar_tags import calendar_tags
 from amap import AmapClient, AmapError                     # noqa: E402
@@ -104,6 +105,11 @@ def iter_corridors(trip: dict) -> list:
                 "waypoints": c.get("waypoints") or [],
                 "route_version": int(trip.get("route_version", 1)),
             })
+        if trip.get("dynamic_candidates"):
+            for rank in range(2):
+                out.append({"id": "amap_dynamic_%d" % (rank+1), "name": "高德无途经点 · 当前候选%d" % (rank+1),
+                    "short": "动态备选%d" % (rank+1), "recommended": False, "note": "高德默认多方案中按当前耗时排序；路径会变化，不是固定走廊。",
+                    "waypoints": [], "route_version": int(trip.get("route_version",1)), "dynamic": True, "candidate_rank": rank})
         return out
     return [{
         "id": "default", "name": "默认路线", "short": "默认",
@@ -146,7 +152,7 @@ def parse_iso(s: str) -> datetime:
 # ---------------- 采集 ----------------
 
 def collect_corridor(client, cfg: dict, trip: dict, corridor: dict, now: datetime,
-                     seg_n: int, strategy: int, keep_geometry: bool) -> dict:
+                     seg_n: int, strategy: int, keep_geometry: bool, candidate_data=None) -> dict:
     """采一条走廊。任何失败都不抛出，而是记成 ok=False，不拖垮整轮。"""
     origin, destination = trip["origin"], trip["destination"]
     item = {
@@ -157,9 +163,11 @@ def collect_corridor(client, cfg: dict, trip: dict, corridor: dict, now: datetim
         "waypoints": corridor["waypoints"],
         "route_version": corridor["route_version"],
         "ok": False,
+        "dynamic": bool(corridor.get("dynamic")),
+        "strategy": 10 if corridor.get("dynamic") else strategy,
     }
     try:
-        data = client.driving_v3(origin, destination, strategy=strategy,
+        data = candidate_data if corridor.get("dynamic") else client.driving_v3(origin, destination, strategy=strategy,
                                  waypoints=corridor["waypoints"] or None,
                                  cartype=trip.get("cartype"),
                                  province=trip.get("plate_province"),
@@ -171,7 +179,17 @@ def collect_corridor(client, cfg: dict, trip: dict, corridor: dict, now: datetim
         item["error"] = "%s: %s" % (type(exc).__name__, exc)
         return item
 
-    paths = ((data.get("route") or {}).get("paths")) or []
+    if isinstance(data, Exception):
+        item["error"] = str(data)
+        return item
+    paths = (((data or {}).get("route") or {}).get("paths")) or []
+    if corridor.get("dynamic"):
+        paths = select_candidates(paths)
+        rank = corridor["candidate_rank"]
+        if len(paths) <= rank:
+            item["error"] = "高德未返回足够的不同候选路线，不以重复路线补齐"
+            return item
+        paths = [paths[rank]]
     if not paths:
         item["error"] = "高德未返回路线"
         return item
@@ -182,6 +200,8 @@ def collect_corridor(client, cfg: dict, trip: dict, corridor: dict, now: datetim
         item["error"] = "路径几何为空，无法分段"
         return item
 
+    item["path_fingerprint"] = fingerprint(paths[0])
+    item["route_grid"] = sorted(grid_of_path(paths[0]))
     summary = path_summary(paths[0])
     item.update({
         "ok": True,
@@ -215,10 +235,17 @@ def collect_direction(client, cfg: dict, direction: str, trip: dict) -> dict:
     print("  【%s】%s → %s（%d 条走廊）"
           % (DIR_LABEL[direction], trip["origin_name"], trip["destination_name"], len(corridors)))
 
+    candidate_data = None
+    if any(c.get("dynamic") for c in corridors):
+        try:
+            candidate_data = client.driving_v3(trip["origin"], trip["destination"], strategy=10,
+                waypoints=None, cartype=trip.get("cartype"), province=trip.get("plate_province"), number=trip.get("plate_number"))
+        except Exception as exc:
+            candidate_data = exc
     items = []
     for c in corridors:
         it = collect_corridor(client, cfg, trip, c, now, seg_n, strategy,
-                              keep_geometry=(c["id"] == rec_geom))
+                              keep_geometry=(c["id"] == rec_geom), candidate_data=candidate_data)
         items.append(it)
         if it["ok"]:
             print("    %s %-12s %6.1f km  %5.2f h  ¥%-4.0f  到达 %s"
@@ -227,6 +254,7 @@ def collect_direction(client, cfg: dict, direction: str, trip: dict) -> dict:
         else:
             print("    ✗ %-12s 采集失败：%s" % (it["short"], it.get("error", "")))
 
+    annotate_comparisons(items)
     ok_items = [i for i in items if i["ok"]]
     fastest = min(ok_items, key=lambda r: r["duration_min"])["id"] if ok_items else None
     if fastest:

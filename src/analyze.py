@@ -615,9 +615,9 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
     for idx, info in enumerate(corridors):
         cid = info["id"]
         recs = [r for r in model_recs if corridor_of(r, cid)]
-        baseline = build_baseline(model_recs, cfg, cid)
+        baseline = build_baseline([] if info.get("dynamic") else model_recs, cfg, cid)
         proj = {"cells": [], "best": [], "freeflow_min": baseline["freeflow_min"]}  # legacy shape, no future projection
-        segs = segment_compare(model_recs, cfg, cid, now)
+        segs = [] if info.get("dynamic") else segment_compare(model_recs, cfg, cid, now)
         latest = rec_latest(model_recs, cid)
         latest_attempt = {}
         for rec in reversed(current_recs):
@@ -645,6 +645,7 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
 
         entry = {
             "id": cid,
+            "dynamic": bool(info.get("dynamic")),
             "name": info["name"],
             "short": info["short"],
             "note": info["note"],
@@ -679,6 +680,8 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
             },
             "now": {
                 "ok": fresh,
+                "comparison": now_c.get("comparison"),
+                "path_fingerprint": now_c.get("path_fingerprint"),
                 "stale": bool(attempt_c.get("ok") and not fresh),
                 "sampled_at": sampled_at,
                 "age_minutes": round(age_min, 1) if age_min is not None else None,

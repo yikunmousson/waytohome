@@ -64,7 +64,7 @@ jobs:
             exit 1
           fi
 
-      - name: 采集（4 条候选走廊 × 去程 + 返程）
+      - name: 采集（4 条固定走廊 + 2 条动态备选 × 去返）
         env:
           AMAP_KEY: ${{ secrets.AMAP_KEY }}
         run: python src/collect.py --if-due

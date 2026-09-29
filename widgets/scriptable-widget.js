@@ -145,7 +145,7 @@ function build(data, family) {
   co.minimumScaleFactor = 0.65;
 
   // 副行
-  let subTxt = "现在出发 · 畅通基准 " + h1(fBl.freeflow_min || 0) + "h";
+  let subTxt = "现在出发" + (fBl.freeflow_min ? " · 畅通基准 " + h1(fBl.freeflow_min) + "h" : " · 动态选路，无固定基线");
   if (fastest && focus.id !== fastest.id) subTxt += " · 比最快慢 " + Math.round(focus.gap_min || 0) + " 分";
   const sub = w.addText(subTxt);
   sub.font = Font.systemFont(10);

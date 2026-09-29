@@ -110,7 +110,7 @@ a{color:var(--accent)}
   h1{font-size:20px}
   .m .val{font-size:22px}
   .cell{width:24px;height:22px}
-    .conote{display:none}
+    .conote{font-size:11px}
     .maprow{grid-template-columns:1fr}
     .mapwrap{max-width:340px;margin:0 auto}
     .tabs.sel{margin-left:0}
@@ -136,8 +136,8 @@ a{color:var(--accent)}
   <div class="banner" id="banner"></div>
 
   <div class="card" id="card-corridor">
-    <h2>四条走廊，此刻谁最快</h2>
-    <p class="sub">同一时刻、同一策略下，高德对 4 条候选走廊给出的当前预计耗时。仅使用 45 分钟内的成功采样。</p>
+    <h2>六条路线，此刻谁最快</h2>
+    <p class="sub">4 条固定走廊 + 2 条无途经点动态备选。固定走廊采用速度优先，动态备选来自高德默认多方案，按当前耗时选前两条不同路径。仅使用 45 分钟内的成功采样。</p>
     <div id="verdict"></div>
     <div id="cotable"></div>
   </div>
@@ -189,7 +189,7 @@ try { localStorage.removeItem('waytohome.manual.v1'); } catch (_) {}
 let DATA = null, DIR = 'outbound', charts = {};
 let SEL_DATE = 0, SEL_CO = null, HM_CO = '__best__', SEG_CO = null, YMODE = 'h';
 
-const PALETTE = ['#1F5FA8', '#D9A036', '#D9604F', '#7A6FA8'];
+const PALETTE = ['#1F5FA8', '#D9A036', '#D9604F', '#7A6FA8', '#168A82', '#BB568E'];
 const BASIS_NAME = {0:'经验推算', 1:'实测+经验', 2:'实测为主'};
 const STATUS_COLOR = { '畅通':'#4E9E5B', '缓行':'#D9A036', '拥堵':'#D9604F', '严重拥堵':'#A22C2C', '未知':'#C9C7C1' };
 const STATUS_ORDER = ['畅通','缓行','拥堵','严重拥堵','未知'];
@@ -277,7 +277,7 @@ function render(){
 
   document.getElementById('title').textContent = (x.trip && x.trip.name) ? x.trip.name : '国庆长途路况监测';
   document.getElementById('subtitle').textContent =
-    `${x.trip.origin_name} → ${x.trip.destination_name} · 4 条候选走廊 · 数据更新于 ${hm(x.updated_at)}`;
+    `${x.trip.origin_name} → ${x.trip.destination_name} · ${x.corridors.length} 条比较路线 · 数据更新于 ${hm(x.updated_at)}`;
 
   const b = document.getElementById('banner');
   const mat = cov.maturity == null ? 0 : cov.maturity;
@@ -342,6 +342,8 @@ function renderCorridorTable(x){
     const bl = c.baseline || {};
     const isHi = c.id === fastest;
     const isRec = c.id === rec;
+    const comparison=n.comparison;
+    const comparisonText=comparison?`与 ${comparison.closest_short} 的粗网格重合 ${Math.round(comparison.grid_overlap*100)}%${comparison.similar?'（高度相似）':''}；里程差 ${comparison.distance_delta_km>0?'+':''}${comparison.distance_delta_km} km，耗时差 ${comparison.duration_delta_min>0?'+':''}${comparison.duration_delta_min} 分钟。仅作筛查，请核对道路。`:'';
     const basisTxt = n.ok ? ((c.rank===1) ? '<span class="pill win">本轮最快</span>' : '<span class="pill">第 '+c.rank+'</span>')
       : `<span class="pill">${n.stale?'已过期':'采集失败'}</span><div class="conote">${esc(n.error||'暂无新版路线数据')}${n.sampled_at?'<br>最近尝试 '+hm(n.sampled_at):''}</div>`;
     const gap = (c.gap_min==null) ? '—' : (c.gap_min<=0 ? '最快' : '+'+Math.round(c.gap_min)+' 分');
@@ -353,9 +355,9 @@ function renderCorridorTable(x){
       <td>
         <div class="co"><span class="dot" style="background:${coColor(c)}"></span>
           <span class="coname">${isRec?'★ ':''}${esc(c.short)}</span></div>
-        <div class="conote">${esc(c.name)}${c.note?'<br>'+esc(c.note):''}</div>
+        <div class="conote">${esc(c.name)}${c.note?'<br>'+esc(c.note):''}${c.dynamic?'<br>'+esc(comparisonText)+'<details><summary>查看实际道路</summary>'+esc((n.roads||[]).join(' → '))+'</details>':''}</div>
       </td>
-      <td>${isRec?'<span class="pill rec">关注</span>':'<span class="pill">备选</span>'}</td>
+      <td>${isRec?'<span class="pill rec">关注</span>':'<span class="pill">'+(c.dynamic?'动态':'备选')+'</span>'}</td>
       <td>${n.ok? n.distance_km+' km' : '—'}</td>
       <td>${n.ok? '<b>'+fmtH(n.duration_min)+'</b> 小时' : '—'}</td>
       <td>${gap}
@@ -410,7 +412,7 @@ function renderMap(x){
       </div></div>`;
   };
   document.getElementById('mapSide').innerHTML =
-    rows.map(coRow).join('')
+    rows.filter(c=>!c.dynamic).map(coRow).join('')
     + `<div class="mlg"><i class="dot" style="background:#1D9E75"></i>
          <div><div class="mhd"><b>起点</b></div><span>${esc(x.trip.origin_name)}</span></div></div>`
     + `<div class="mlg"><i class="dot" style="background:#1D1D1F"></i>
@@ -418,7 +420,7 @@ function renderMap(x){
 
   document.getElementById('mapNote').innerHTML =
     '底图来自高德静态图 API（<code>v3/staticmap</code>），折线配色与上表、与下面各张图一致（默认关注走廊更粗、画在最上层）。'
-    + '高德静态图 <code>paths</code> 上限正好是 4 条线，和候选走廊数量一致，所以四条能画在同一张图上、共用一个缩放级别 —— '
+    + '高德静态图 <code>paths</code> 上限正好是 4 条线，此图仅展示原有 4 条固定走廊，动态备选不在图中；四条固定走廊画在同一张图上、共用一个缩放级别 —— '
     + '拆成四张各自动缩放，反而看不出谁比谁更偏西。'
     + 'Key 只在本机脚本里发出请求，不写进网页（前端放 Key 会被抓走）。'
     + '几何缓存在 <code>data/geometry/</code>：路不会动，所以只有 <code>--refresh</code> 时才重抓。';
@@ -555,7 +557,7 @@ function renderTrend(x){
     const map = {}; (c.trend||[]).filter(allow).forEach(t=>map[t.ts]=Math.round(t.duration_min));
     const vals = tsList.map(ts=> map[ts]!=null ? map[ts]/60 : null);
     // 降采样：点太多时按比例抽稀
-    return { label:c.short, data:vals, borderColor:coColor(c), backgroundColor:coColor(c),
+    return { label:c.short+(c.dynamic?'（动态选路）':''), data:vals, borderDash:c.dynamic?[5,4]:[], borderColor:coColor(c), backgroundColor:coColor(c),
              borderWidth:c.recommended?2.4:1.8, pointRadius:0, tension:.25, spanGaps:false };
   });
   const free = null;
@@ -583,6 +585,7 @@ function renderNotes(x, cov){
   const notes = [
     `当前版本采样 ${cov.real||0} 条，覆盖 ${cov.days||0} 天、${cov.hours_covered||0}/24 个小时。`,
     '自动采样是高德对当时出发的估算。历史场景分别统计，样本不足时不外推未来国庆耗时。',
+    '动态备选编号仅表示本轮排序，历史曲线可能跨不同路径，不参与固定路段基线。粗网格重合只用于发现疑似重复，不代表道路完全相同。',
     '分段比较只使用同走廊、同路线版本、同场景及相近小时的历史采样。默认关注走廊不代表最快。'
   ];
   document.getElementById('notes').innerHTML =

@@ -66,7 +66,7 @@ const fetch = () => Promise.resolve({ ok: true, status: 200, json: () => Promise
 const sandbox = {
   document, Chart, fetch, console,
   Math, JSON, Date, Object, Array, String, Number, Boolean, RegExp, Error,
-  setTimeout, clearTimeout, isNaN, parseInt, parseFloat, Infinity, NaN, undefined,
+  setTimeout, clearTimeout, setInterval:()=>0, isNaN, parseInt, parseFloat, Infinity, NaN, undefined,
 };
 sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
@@ -87,8 +87,7 @@ setTimeout(() => {
   if (failed) process.exit(1);
 
   // 只检查由 JS 渲染的区块（yTabs 等是页面里的静态 HTML，桩里拿不到）
-  const critical = ['title', 'subtitle', 'verdict', 'cotable', 'mapSide', 'mapNote', 'dateTabs',
-                    'corrLegend', 'hmTabs', 'heatmap', 'besttable', 'bestPerCo', 'segTabs', 'segMatrix',
+  const critical = ['title', 'subtitle', 'verdict', 'cotable', 'mapSide', 'mapNote',  'segTabs', 'segMatrix',
                     'strip', 'stripLegend', 'roadlist', 'segtable', 'trendLegend', 'notes', 'foot'];
   const empty = critical.filter(id => {
     const el = touched.get(id);
@@ -102,11 +101,7 @@ setTimeout(() => {
 
   // 交互函数：切日期 / 切走廊 / 切纵轴口径 / 切方向 / 缩略图缺失时的降级
   const interactions = [
-    ['pickDate',      () => sandbox.pickDate(2)],
-    ['热力图切走廊',   () => sandbox.pickCorridor(sandbox.d().corridors[2].id, 'heat')],
     ['色带切走廊',     () => sandbox.pickCorridor(sandbox.d().corridors[1].id, 'seg')],
-    ['纵轴切倍数',     () => sandbox.setYMode('x')],
-    ['纵轴切耗时',     () => sandbox.setYMode('h')],
     ['切到返程',       () => sandbox.setDir('return')],
     ['缩略图缺图降级',  () => { const i = touched.get('mapImg'); if (i && i.onerror) i.onerror(); }],
   ];

@@ -1,0 +1,14 @@
+{
+  "errcode": 10012,
+  "errmsg": "INSUFFICIENT_PRIVILEGES",
+  "http_status": 200,
+  "checked_at": "2026-09-17T08:57:44.243539+00:00",
+  "requested_points": 1,
+  "requested_departure_epoch": 1789721863,
+  "data_present": false,
+  "ordinary_driving_control": {
+    "status": "1",
+    "info": "OK",
+    "infocode": "10000"
+  }
+}

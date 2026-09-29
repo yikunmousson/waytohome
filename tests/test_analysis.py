@@ -89,6 +89,14 @@ class AnalysisTests(unittest.TestCase):
         baseline["detail"]["workday"][8]["n"] = 18
         self.assertEqual(analyze.factor_at(baseline, "workday", 8)[1], "实测为主")
 
+    def test_default_analysis_does_not_publish_projected_windows(self):
+        cfg = config()
+        now = datetime(2026, 9, 30, 12, tzinfo=TZ)
+        result = analyze.analyze_direction([record(now.isoformat())], cfg, "outbound", now)
+        self.assertEqual(result["best_overall"], [])
+        self.assertEqual(result["corridors"][0]["cells"], [])
+        self.assertEqual(result["corridors"][0]["trend"][0]["scene"], "假期 2026-10-01 · 节前一天")
+
     def test_return_windows_are_filtered_by_arrival_date(self):
         cfg = config()
         recs = [record("2026-09-30T12:00:00+08:00")]

@@ -1,25 +1,4 @@
-"""把攒下来的采样，变成「走哪条、什么时候出发」的答案。
-
-两条主线：
-
-1) 每条走廊各自建一套「常态基线」
-   高德不给历史路况，基线只能自己攒。刚开始只有几条采样，纯靠实测会得到
-   一条毫无意义的曲线，所以用「先验 + 实测」的收缩估计（shrinkage）：
-
-       因子 = (n × 实测因子 + K × 先验因子) / (n + K)
-
-     n = 该小时已有的采样数，K = 先验的等效样本量（PRIOR_K）
-     第一天：几乎全是先验，曲线依然有形状，能用来做决策
-     第两周：n 远大于 K，曲线基本由你自己的数据说话
-   每条结论都会标注依据：实测为主 / 实测+经验 / 经验推算。
-
-2) 走廊之间横向比
-   同一时刻，4 条走廊各自要多久？谁最快？差多少？这是「走哪条」的直接答案。
-   出发窗口也一样：不是比一个时刻，而是逐段推进推算出全程耗时再比。
-
-用法：
-    python3 src/analyze.py
-"""
+"""Analyze current route estimates and scene-separated history. Manual plans live in the browser."""
 
 import json
 import statistics
@@ -30,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from calendar_tags import calendar_tags
 from collect import iter_corridors, iter_trips           # noqa: E402
 
 TZ = timezone(timedelta(hours=8))
@@ -386,7 +366,7 @@ def segment_compare(records: list, cfg: dict, cid: str, now: datetime) -> dict:
         return []
     latest_rec = latest["rec"]
     latest_dt = datetime.fromisoformat(latest_rec["ts"])
-    latest_type = norm_day_type(latest_rec.get("day_type") or day_type_of(latest_dt, cfg))
+    latest_type = calendar_tags(latest_dt, cfg)["scene"]
 
     # “近期”只取最新一次快照，避免把过去 24 小时不同时段混成一个中位数。
     for b in latest["corridor"].get("bins") or []:
@@ -402,7 +382,7 @@ def segment_compare(records: list, cfg: dict, cid: str, now: datetime) -> dict:
         if not c:
             continue
         dt = datetime.fromisoformat(rec["ts"])
-        rec_type = norm_day_type(rec.get("day_type") or day_type_of(dt, cfg))
+        rec_type = calendar_tags(dt, cfg)["scene"]
         hour_gap = abs(dt.hour - latest_dt.hour)
         hour_gap = min(hour_gap, 24 - hour_gap)
         if rec_type != latest_type or hour_gap > 1:
@@ -636,7 +616,7 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
         cid = info["id"]
         recs = [r for r in model_recs if corridor_of(r, cid)]
         baseline = build_baseline(model_recs, cfg, cid)
-        proj = project_corridor(model_recs, baseline, cfg, direction, cid, now)
+        proj = {"cells": [], "best": [], "freeflow_min": baseline["freeflow_min"]}  # legacy shape, no future projection
         segs = segment_compare(model_recs, cfg, cid, now)
         latest = rec_latest(model_recs, cid)
         latest_attempt = {}
@@ -724,6 +704,7 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
                 "duration_min": num(corridor_of(r, cid).get("duration_min")),
                 "distance_km": num(corridor_of(r, cid).get("distance_km")),
                 "day_type": r.get("day_type"),
+                **calendar_tags(datetime.fromisoformat(r["ts"]), cfg),
                 "source": r.get("source") or "amap",
             } for r in recs],
             "polyline": now_c.get("polyline"),
@@ -784,13 +765,7 @@ def analyze_direction(records: list, cfg: dict, direction: str, now: datetime) -
     out["route_warning"] = bool(
         latest_current.get("route_signature_checked")
         and num(latest_current.get("route_signature_similarity"), 1.0) < 0.6)
-    out["model_note"] = (
-        "逐段推进推算：每段耗时用「车走到该段的那个小时」的时段因子放大，"
-        "而不是拿出发时刻一刀切。每条走廊各自建一套基线，避免不同通道互相污染。"
-        "先验振幅按里程位置衰减：起终点 60 km 内按城市（振幅 100%），中间纯高速只保留 " +
-        str(round(RURAL_AMP * 100)) + "%，"
-        "否则会推出「凌晨 2 点 5 小时跑完 600 km」这种物理上不可能的结论。"
-    )
+    out["model_note"] = "历史采样仅为当时出发的高德估算；不外推未来假期耗时。"
     out["recommended_id"] = rec_id
     return out
 
@@ -842,8 +817,9 @@ def main() -> None:
     merged["total_records"] = total
     merged["segment_count"] = cfg["analysis"]["segment_count"]
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":")),
-                        encoding="utf-8")
+    temporary = out_path.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    temporary.replace(out_path)
     print("✓ 写出 %s（%.1f KB）" % (out_path.relative_to(ROOT), out_path.stat().st_size / 1024))
 
 

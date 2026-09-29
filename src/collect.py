@@ -26,6 +26,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from lifecycle import project_active
+from calendar_tags import calendar_tags
 from amap import AmapClient, AmapError                     # noqa: E402
 from segment import build_path_analysis, path_summary      # noqa: E402
 
@@ -238,6 +240,7 @@ def collect_direction(client, cfg: dict, direction: str, trip: dict) -> dict:
         "weekday": now.weekday(),
         "weekday_cn": WEEKDAY_CN[now.weekday()],
         "day_type": day_type_of(now, cfg),
+        "calendar": calendar_tags(now, cfg),
         "bucket": bucket_of(now, cfg["analysis"]["baseline_bucket_minutes"]),
         "direction": direction,
         "route_version": int(trip.get("route_version", 1)),
@@ -373,6 +376,9 @@ def main() -> None:
                     help="仅在配置的采集间隔已到时执行（供 GitHub Actions 使用）")
     args = ap.parse_args()
 
+    if not project_active():
+        print("项目已于北京时间 2026-10-08 00:00 结束，不再采集。")
+        return
     load_env_file()
     cfg = load_config()
 
@@ -399,7 +405,7 @@ def main() -> None:
         sys.exit(0 if recs else 1)
 
     print("持续采集中，Ctrl-C 停止。")
-    while True:
+    while project_active():
         try:
             run_once(client, cfg, raw_dir, args.direction, args.dry_run)
         except Exception as exc:
